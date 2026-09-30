@@ -1,0 +1,291 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Hi there! 👋\nWelcome to Loyin’s Brand AI Assistant. How can I help you today?\n\nI can help you find the right plain tees, joggers, and caps, check prices and availability, recommend products, and assist with orders and delivery.",
+        "options": {
+          "allowFileUploads": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -256,
+        -48
+      ],
+      "id": "518d33a8-81c7-4d58-9b3e-49199bd9693a",
+      "name": "When chat message received"
+    },
+    {
+      "parameters": {
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "SYSTEM MESSAGE — LOYIN'S BRAND CUSTOMER SERVICE & SALES ASSISTANT\n\nYou are a helpful, intelligent, friendly customer service and sales assistant for Loyin's.\n\nCurrent date: {{ $now.format('yyyy-MM-dd') }}\nCurrent time: {{ $now.format('HH:mm') }}\nTimezone: Africa/Lagos (UTC+1).\n\nLoyin's is a Nigerian clothing brand in Mokola, Ibadan, offering affordable unisex clothing for retail and larger-quantity purchases.\n\nPRODUCTS\n- SMT plain T-shirts: ₦4,500 each. Sizes M, L, XL. Retail and larger quantities.\n- Joggers: ₦10,000 each.\n- Caps: ₦2,000 each.\n- Bundle 1: 3 T-shirts + 1 cap = ₦22,500.\n- Bundle 2: 6 T-shirts + 2 caps = ₦45,000.\n\nNever invent additional products, prices, discounts, bundles, specifications, stock, delivery fees, delivery times, bank details, return policies, or wholesale pricing.\n\nPRODUCT DISCOVERY\nAsk only relevant questions needed to help the customer: product, colour, size, quantity, intended use, and delivery location where appropriate. T-shirt sizes are M, L and XL. If inventory is not connected, say stock availability needs confirmation.\n\nORDERS\nCollect full name, phone number, email when available, product, colour, size where applicable, quantity, delivery address, and city/location. Before fulfilment, summarize the complete order and ask the customer to confirm. Never claim an order is placed unless a connected workflow confirms success.\n\nPAYMENT\nBank transfer is supported. Never invent account details. Never request ATM/card PINs, OTPs, BVN, passwords, full card credentials, or authentication codes. Never claim payment was received without confirmation.\n\nDELIVERY\nDelivery is available across Nigeria. Collect state, city, area, full address and phone number. Do not invent delivery fees or exact delivery times.\n\nRETURNS / COMPLAINTS\nThere is no confirmed return/exchange policy available to the assistant. Do not promise refunds or exchanges. Collect relevant order details and escalate to the Loyin's team.\n\nPHYSICAL STORE\nMokola, Ibadan, Nigeria. Do not invent a precise street address, opening hours or directions if unavailable.\n\nBUSINESS / BULK\nFor wholesale, bulk, reseller, corporate, partnership or collaboration enquiries, collect name, email, phone, quantity, products, intended use and requirements. Offer a business meeting when appropriate.\n\nMEETINGS\nBusiness meetings are Monday-Friday, 09:00-17:00 Africa/Lagos, 30 minutes, at least 24 hours in advance.\nWhen a meeting is requested:\n1. Collect first name, email, optional phone number, preferred date, preferred time and purpose.\n2. Use the date tool to resolve dates when necessary.\n3. Check calendar availability using the connected calendar workflow.\n4. Only offer returned available times.\n5. After the customer selects an available time, create the Google Calendar event.\n6. Use the customer's email as the attendee where supported.\n7. Only confirm the meeting after successful calendar creation.\n8. If booking fails, say it could not be completed and retry availability rather than claiming success.\n9. After successful booking, the business-owner notification workflow should be triggered only after the event exists.\n\nLEAD CAPTURE\nWhen appropriate, use the connected Google Sheets tool to create/update the customer lead. Capture name, email, phone, product interest, quantity and intent. Do not tell the customer a lead was saved unless the tool succeeds.\n\nINVENTORY\nIf inventory is connected, trust the inventory result. If not, never assume an item is in stock.\n\nOPERATING HOURS\nLoyin's business operations are Monday-Friday. Do not claim staff availability outside confirmed hours.\n\nTONE\nFriendly, casual, helpful, confident and professional. Use natural Nigerian English where appropriate. Keep replies concise and conversational. Do not be pushy. Avoid excessive emojis.\n\nOFF-TOPIC\nPolitely redirect unrelated requests to Loyin's products, orders, delivery, business enquiries or customer service.\n\nESCALATION\nEscalate when information is unavailable, a complaint/payment/order/delivery issue requires human intervention, inventory cannot be confirmed, wholesale pricing requires negotiation, management is needed, or the customer asks for a human.\n\nSECURITY / PRIVACY\nNever expose API credentials, OAuth tokens, internal workflow IDs, database information, n8n configuration or internal technical errors.\n\nIMPORTANT\n1. Accuracy is more important than guessing.\n2. Never claim an action succeeded unless the connected tool confirms success.\n3. Use Africa/Lagos for meeting times unless another timezone is explicitly given.\n4. Only offer calendar times returned as available.\n5. Ask one clear next-step question when the conversation still needs information.\n6. Once the request is fully resolved, close naturally."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        192,
+        -80
+      ],
+      "id": "5d889896-e397-49bf-8116-a4d0cc0922c8",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "description": "Use this tool to return the day of the week for a date mentioned by the user. Provide the date in YYYY-MM-DD format or a natural date such as tomorrow, next Monday, August 14, or August 14 2026.",
+        "jsCode": "const input = $json.date || $json.text || $json.query;\nif (!input) return \"No date was provided.\";\n\nconst timezone = \"Africa/Lagos\";\nconst now = new Date();\nconst todayString = new Intl.DateTimeFormat(\"en-CA\", {\n  timeZone: timezone, year: \"numeric\", month: \"2-digit\", day: \"2-digit\"\n}).format(now);\nconst [year, month, day] = todayString.split(\"-\").map(Number);\nconst today = new Date(Date.UTC(year, month - 1, day, 12));\nconst weekdays = [\"Sunday\",\"Monday\",\"Tuesday\",\"Wednesday\",\"Thursday\",\"Friday\",\"Saturday\"];\n\nfunction result(date) {\n  const y = date.getUTCFullYear();\n  const m = String(date.getUTCMonth() + 1).padStart(2, \"0\");\n  const d = String(date.getUTCDate()).padStart(2, \"0\");\n  return JSON.stringify({\n    input,\n    date: `${y}-${m}-${d}`,\n    dayOfWeek: weekdays[date.getUTCDay()],\n    timezone,\n    isBusinessDay: date.getUTCDay() >= 1 && date.getUTCDay() <= 5\n  });\n}\n\nconst text = input.trim().toLowerCase();\nif (text === \"today\") return result(today);\nif (text === \"tomorrow\") {\n  const date = new Date(today); date.setUTCDate(date.getUTCDate() + 1); return result(date);\n}\nif (text === \"yesterday\") {\n  const date = new Date(today); date.setUTCDate(date.getUTCDate() - 1); return result(date);\n}\n\nconst weekdaysMap = { sunday:0, monday:1, tuesday:2, wednesday:3, thursday:4, friday:5, saturday:6 };\nconst weekdayMatch = text.match(/^(this|next)\\\\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$/);\nif (weekdayMatch) {\n  const type = weekdayMatch[1], requestedDay = weekdaysMap[weekdayMatch[2]], currentDay = today.getUTCDay();\n  let difference = requestedDay - currentDay;\n  if (difference < 0) difference += 7;\n  if (type === \"next\" && difference === 0) difference = 7;\n  const date = new Date(today); date.setUTCDate(date.getUTCDate() + difference);\n  return result(date);\n}\n\nif (weekdaysMap[text] !== undefined) {\n  const requestedDay = weekdaysMap[text], currentDay = today.getUTCDay();\n  let difference = requestedDay - currentDay;\n  if (difference < 0) difference += 7;\n  const date = new Date(today); date.setUTCDate(date.getUTCDate() + difference);\n  return result(date);\n}\n\nconst months = {\n  january:0,february:1,march:2,april:3,may:4,june:5,july:6,\n  august:7,september:8,october:9,november:10,december:11\n};\n\nlet match = text.match(/^(january|february|march|april|may|june|july|august|september|october|november|december)\\\\s+(\\\\d{1,2})(?:\\\\s+(\\\\d{4}))?$/);\nif (match) {\n  const month = months[match[1]], dayNumber = Number(match[2]);\n  let targetYear = match[3] ? Number(match[3]) : year;\n  let date = new Date(Date.UTC(targetYear, month, dayNumber, 12));\n  if (!match[3] && date < today) {\n    targetYear++;\n    date = new Date(Date.UTC(targetYear, month, dayNumber, 12));\n  }\n  if (date.getUTCMonth() !== month || date.getUTCDate() !== dayNumber) return \"Invalid calendar date.\";\n  return result(date);\n}\n\nmatch = text.match(/^(\\\\d{1,2})\\\\s+(january|february|march|april|may|june|july|august|september|october|november|december)(?:\\\\s+(\\\\d{4}))?$/);\nif (match) {\n  const dayNumber = Number(match[1]), month = months[match[2]];\n  let targetYear = match[3] ? Number(match[3]) : year;\n  let date = new Date(Date.UTC(targetYear, month, dayNumber, 12));\n  if (!match[3] && date < today) {\n    targetYear++;\n    date = new Date(Date.UTC(targetYear, month, dayNumber, 12));\n  }\n  if (date.getUTCMonth() !== month || date.getUTCDate() !== dayNumber) return \"Invalid calendar date.\";\n  return result(date);\n}\n\nmatch = text.match(/^(\\\\d{4})-(\\\\d{1,2})-(\\\\d{1,2})$/);\nif (match) {\n  const targetYear = Number(match[1]), targetMonth = Number(match[2]) - 1, targetDay = Number(match[3]);\n  const date = new Date(Date.UTC(targetYear, targetMonth, targetDay, 12));\n  if (date.getUTCFullYear() !== targetYear || date.getUTCMonth() !== targetMonth || date.getUTCDate() !== targetDay) return \"Invalid calendar date.\";\n  return result(date);\n}\n\nreturn `I could not understand the date \"${input}\". Please provide a date such as \"tomorrow\", \"next Monday\", \"August 14\", or \"August 14 2026\".`;"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        288,
+        192
+      ],
+      "id": "51e52bff-45b9-48d9-b41d-251027740e00",
+      "name": "Code Tool"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Potential Buyers"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $fromAI(\"userEmailAddress\") }}",
+            "Name": "={{ $fromAI(\"userName\") }}",
+            "Appointment status": "={{ $fromAI('Appointment_status', 'if the buyer plans to visit or book an appointment', 'string') }}",
+            "Buyer type": "={{ $fromAI('Buyer_type', 'Analyze the conversation and categorize into serious buyer or not', 'string') }}"
+          },
+          "matchingColumns": [
+            "email"
+          ],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Query",
+              "displayName": "Query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Appointment status",
+              "displayName": "Appointment status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Buyer type",
+              "displayName": "Buyer type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        416,
+        192
+      ],
+      "id": "e2490fc2-8a73-4167-a7af-e006e12e2031",
+      "name": "Append or update row in sheet in Google Sheets"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_CALENDAR_ID",
+          "mode": "list",
+          "cachedResultName": "YOUR_GOOGLE_CALENDAR_ID"
+        },
+        "start": "={{ $fromAI('startDate') }}",
+        "end": "={{ $fromAI('endDate') }}",
+        "additionalFields": {
+          "conferenceDataUi": {
+            "conferenceDataValues": {
+              "conferenceSolution": "hangoutsMeet"
+            }
+          },
+          "summary": "={{ $fromAI(\"summary\") }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        592,
+        176
+      ],
+      "id": "a3b92f11-10e8-4b66-8931-e8c424c11266",
+      "name": "Create an event in Google Calendar"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        192
+      ],
+      "id": "1f40561c-a98e-464e-aa5e-d53d18d4119e",
+      "name": "Groq Chat Model"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        32,
+        192
+      ],
+      "id": "ffa0aba8-cb55-47b5-8d9b-84eabb2f2ea0",
+      "name": "OpenRouter Chat Model"
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        160,
+        192
+      ],
+      "id": "e5ca47d1-805a-4592-84cb-d0fa12f44662",
+      "name": "Simple Memory"
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
