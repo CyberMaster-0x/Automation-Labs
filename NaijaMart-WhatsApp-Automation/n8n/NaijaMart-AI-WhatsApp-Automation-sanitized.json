@@ -1,0 +1,605 @@
+{
+  "name": "NaijaMart - AI WhatsApp Automation (Sanitized Progress Export)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "chat-trigger",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -880,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const message =\n  $json.chatInput ??\n  $json.message ??\n  $json.text ??\n  \"\";\n\nreturn {\n  json: {\n    message_id: `MSG-${Date.now()}`,\n    request_id: `REQ-${Date.now()}`,\n    customer_phone: \"SIMULATED\",\n    customer_name: \"Customer\",\n    message: String(message).trim(),\n    received_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "normalize-input",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "messages": {
+          "values": [
+            {
+              "content": "You are the intent classification system for NaijaMart, a fictional retail business. Your ONLY job is to classify the customer's message and extract relevant information.\n\nAllowed intents:\nPRODUCT_AVAILABILITY\nPRICE_ENQUIRY\nPLACE_ORDER\nORDER_STATUS\nCOMPLAINT\nUNKNOWN\n\nRules:\n1. Return ONLY valid JSON.\n2. Do not return Markdown or code fences.\n3. Do not invent information.\n4. If the intent is unclear, use UNKNOWN.\n5. Confidence must be a number between 0 and 1.\n6. Extract quantity only when explicitly stated.\n7. Extract order_reference only when explicitly provided.\n8. Do not decide whether a product is available.\n9. Do not decide whether an order exists.\n10. Do not calculate prices.\n11. Do not create orders.\n12. Your job is classification and information extraction only.\n\nReturn exactly:\n\n{\n  \"intent\": \"PRODUCT_AVAILABILITY | PRICE_ENQUIRY | PLACE_ORDER | ORDER_STATUS | COMPLAINT | UNKNOWN\",\n  \"confidence\": 0.0,\n  \"product_name\": null,\n  \"sku\": null,\n  \"quantity\": null,\n  \"order_reference\": null,\n  \"reason\": \"\"\n}"
+            },
+            {
+              "content": "Customer message:\\n\\n{{ $json.message }}"
+            }
+          ]
+        }
+      },
+      "id": "gemini-intent-classifier",
+      "name": "Gemini Intent Classifier",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        -400,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiText = $json.content.parts[0].text;\n\nlet ai;\n\ntry {\n  ai = JSON.parse(aiText);\n} catch (error) {\n  throw new Error(`Gemini returned invalid JSON: ${aiText}`);\n}\n\nreturn {\n  json: {\n    ...$json,\n    ai\n  }\n};"
+      },
+      "id": "parse-ai-response",
+      "name": "Parse Ai Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ai.confidence }}",
+              "rightValue": 0.7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "confidence-gate",
+      "name": "Confidence Gate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        80,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": [
+                {
+                  "leftValue": "={{ $json.ai.intent }}",
+                  "rightValue": "PRODUCT_AVAILABILITY",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ]
+            },
+            {
+              "conditions": [
+                {
+                  "leftValue": "={{ $json.ai.intent }}",
+                  "rightValue": "PRICE_ENQUIRY",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ]
+            },
+            {
+              "conditions": [
+                {
+                  "leftValue": "={{ $json.ai.intent }}",
+                  "rightValue": "PLACE_ORDER",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ]
+            },
+            {
+              "conditions": [
+                {
+                  "leftValue": "={{ $json.ai.intent }}",
+                  "rightValue": "ORDER_STATUS",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ]
+            },
+            {
+              "conditions": [
+                {
+                  "leftValue": "={{ $json.ai.intent }}",
+                  "rightValue": "COMPLAINT",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ]
+            },
+            {
+              "conditions": [
+                {
+                  "leftValue": "={{ $json.ai.intent }}",
+                  "rightValue": "UNKNOWN",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "intent-router",
+      "name": "Intent Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  id,\n  product_name,\n  sku,\n  price,\n  stock_quantity,\n  category\nFROM public.products\nWHERE active = true\n  AND (\n    LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ $json.ai.product_name }}', ' ', ''))\n    OR LOWER(sku) = LOWER('{{ $json.ai.sku }}')\n  )\nLIMIT 1;"
+      },
+      "id": "find-product",
+      "name": "Find Product",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        560,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "product-found",
+      "name": "Product Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        800,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    ...$json,\n    response: `${$json.product_name} is ₦${Number($json.price).toLocaleString()}.`\n  }\n};"
+      },
+      "id": "price-response",
+      "name": "Price Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        -440
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  id,\n  product_name,\n  sku,\n  price,\n  stock_quantity,\n  category\nFROM public.products\nWHERE active = true\n  AND (\n    LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ $json.ai.product_name }}', ' ', ''))\n    OR LOWER(sku) = LOWER('{{ $json.ai.sku }}')\n  )\nLIMIT 1;"
+      },
+      "id": "check-product-availability",
+      "name": "Check Product Availability",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        560,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "product-exists",
+      "name": "Product Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        800,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.stock_quantity }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "in-stock",
+      "name": "In Stock?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1040,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    ...$json,\n    response: `${$json.product_name} is available. We currently have ${$json.stock_quantity} unit(s) in stock.`\n  }\n};"
+      },
+      "id": "availability-response",
+      "name": "Availability Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  id,\n  product_name,\n  sku,\n  price,\n  stock_quantity,\n  category,\n  '{{ $json.ai.quantity }}'::integer AS requested_quantity\nFROM public.products\nWHERE active = true\n  AND (\n    LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ $json.ai.product_name }}', ' ', ''))\n    OR LOWER(sku) = LOWER('{{ $json.ai.sku }}')\n  )\nLIMIT 1;"
+      },
+      "id": "check-order-product",
+      "name": "Check Order Product",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        560,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "order-product-exists",
+      "name": "Order Product Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        800,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const quantity = Number($json.requested_quantity);\n\nif (!Number.isInteger(quantity) || quantity <= 0) {\n  return {\n    json: {\n      ...$json,\n      quantity_valid: false,\n      error_message: \"Please provide a valid quantity.\"\n    }\n  };\n}\n\nreturn {\n  json: {\n    ...$json,\n    quantity,\n    quantity_valid: true\n  }\n};"
+      },
+      "id": "validate-quantity",
+      "name": "Validate Quantity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.quantity_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "quantity-valid",
+      "name": "Quantity Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1280,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Gemini Intent Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Intent Classifier": {
+      "main": [
+        [
+          {
+            "node": "Parse Ai Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Ai Response": {
+      "main": [
+        [
+          {
+            "node": "Confidence Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confidence Gate": {
+      "main": [
+        [
+          {
+            "node": "Intent Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Intent Router": {
+      "main": [
+        [
+          {
+            "node": "Check Product Availability",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Product",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Order Product",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [],
+        []
+      ]
+    },
+    "Find Product": {
+      "main": [
+        [
+          {
+            "node": "Product Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Found?": {
+      "main": [
+        [
+          {
+            "node": "Price Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Check Product Availability": {
+      "main": [
+        [
+          {
+            "node": "Product Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Exists?": {
+      "main": [
+        [
+          {
+            "node": "In Stock?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "In Stock?": {
+      "main": [
+        [
+          {
+            "node": "Availability Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Check Order Product": {
+      "main": [
+        [
+          {
+            "node": "Order Product Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Product Exists?": {
+      "main": [
+        [
+          {
+            "node": "Validate Quantity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Validate Quantity": {
+      "main": [
+        [
+          {
+            "node": "Quantity Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quantity Valid?": {
+      "main": [
+        [],
+        []
+      ]
+    }
+  },
+  "meta": {
+    "export_note": "Sanitized progress export for GitHub. Credentials, API keys, connection IDs, personal contact details, and secrets intentionally omitted.",
+    "fictional_business": "NaijaMart",
+    "database_schema": "public",
+    "status": "In progress"
+  }
+}
