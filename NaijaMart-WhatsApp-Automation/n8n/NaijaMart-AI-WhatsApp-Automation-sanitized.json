@@ -2,63 +2,68 @@
   "name": "NaijaMart - AI WhatsApp Automation (Sanitized Progress Export)",
   "nodes": [
     {
-      "parameters": {},
-      "id": "chat-trigger",
-      "name": "When chat message received",
-      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
-      "typeVersion": 1.4,
-      "position": [
-        -880,
-        -160
-      ]
-    },
-    {
       "parameters": {
         "jsCode": "const message =\n  $json.chatInput ??\n  $json.message ??\n  $json.text ??\n  \"\";\n\nreturn {\n  json: {\n    message_id: `MSG-${Date.now()}`,\n    request_id: `REQ-${Date.now()}`,\n    customer_phone: \"SIMULATED\",\n    customer_name: \"Customer\",\n    message: String(message).trim(),\n    received_at: new Date().toISOString()\n  }\n};"
       },
-      "id": "normalize-input",
+      "id": "f635ccc1-c6f5-484c-8af6-01d3cd3ffa34",
       "name": "Normalize Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         -640,
-        -160
+        -176
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "a8a94359-b44c-466d-8a63-51137b36f3f0",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -864,
+        -144
       ]
     },
     {
       "parameters": {
-        "modelName": "models/gemini-3-flash-preview",
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "models/gemini-3-flash-preview"
+        },
         "messages": {
           "values": [
             {
-              "content": "You are the intent classification system for NaijaMart, a fictional retail business. Your ONLY job is to classify the customer's message and extract relevant information.\n\nAllowed intents:\nPRODUCT_AVAILABILITY\nPRICE_ENQUIRY\nPLACE_ORDER\nORDER_STATUS\nCOMPLAINT\nUNKNOWN\n\nRules:\n1. Return ONLY valid JSON.\n2. Do not return Markdown or code fences.\n3. Do not invent information.\n4. If the intent is unclear, use UNKNOWN.\n5. Confidence must be a number between 0 and 1.\n6. Extract quantity only when explicitly stated.\n7. Extract order_reference only when explicitly provided.\n8. Do not decide whether a product is available.\n9. Do not decide whether an order exists.\n10. Do not calculate prices.\n11. Do not create orders.\n12. Your job is classification and information extraction only.\n\nReturn exactly:\n\n{\n  \"intent\": \"PRODUCT_AVAILABILITY | PRICE_ENQUIRY | PLACE_ORDER | ORDER_STATUS | COMPLAINT | UNKNOWN\",\n  \"confidence\": 0.0,\n  \"product_name\": null,\n  \"sku\": null,\n  \"quantity\": null,\n  \"order_reference\": null,\n  \"reason\": \"\"\n}"
-            },
-            {
-              "content": "Customer message:\\n\\n{{ $json.message }}"
+              "content": "=Customer message:\n\n{{ $json.message }}"
             }
           ]
+        },
+        "builtInTools": {},
+        "options": {
+          "systemMessage": "You are the intent classification system for NaijaMart, a fictional retail business.  Your ONLY job is to classify the customer's message and extract relevant information.  Allowed intents: PRODUCT_AVAILABILITY PRICE_ENQUIRY PLACE_ORDER ORDER_STATUS COMPLAINT UNKNOWN  Rules: 1. Return ONLY valid JSON. 2. Do not return Markdown or code fences. 3. Do not invent information. 4. If the intent is unclear, use UNKNOWN. 5. Confidence must be a number between 0 and 1. 6. Extract quantity only when explicitly stated. 7. Extract order_reference only when explicitly provided. 8. Do not decide whether a product is available. 9. Do not decide whether an order exists. 10. Do not calculate prices. 11. Do not create orders. 12. Your job is classification and information extraction only.  Return exactly:  {   \"intent\": \"PRODUCT_AVAILABILITY | PRICE_ENQUIRY | PLACE_ORDER | ORDER_STATUS | COMPLAINT | UNKNOWN\",   \"confidence\": 0.0,   \"product_name\": null,   \"sku\": null,   \"quantity\": null,   \"order_reference\": null,   \"reason\": \"\" }"
         }
       },
-      "id": "gemini-intent-classifier",
+      "id": "b8e2156f-c4ef-45cc-9f6c-52a9298b726f",
       "name": "Gemini Intent Classifier",
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.2,
       "position": [
-        -400,
-        -160
+        -432,
+        -224
       ]
     },
     {
       "parameters": {
         "jsCode": "const aiText = $json.content.parts[0].text;\n\nlet ai;\n\ntry {\n  ai = JSON.parse(aiText);\n} catch (error) {\n  throw new Error(`Gemini returned invalid JSON: ${aiText}`);\n}\n\nreturn {\n  json: {\n    ...$json,\n    ai\n  }\n};"
       },
-      "id": "parse-ai-response",
+      "id": "13ab0f04-9c85-4222-92ae-6409eb348fc0",
       "name": "Parse Ai Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -160,
-        -160
+        -464,
+        -48
       ]
     },
     {
@@ -66,13 +71,14 @@
         "conditions": {
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict",
-            "version": 2
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
           },
           "conditions": [
             {
               "leftValue": "={{ $json.ai.confidence }}",
-              "rightValue": 0.7,
+              "rightValue": "=0.70",
               "operator": {
                 "type": "number",
                 "operation": "gte"
@@ -80,15 +86,17 @@
             }
           ],
           "combinator": "and"
-        }
+        },
+        "looseTypeValidation": true,
+        "options": {}
       },
-      "id": "confidence-gate",
+      "id": "a2aba792-822f-4553-9219-fa1c5619872f",
       "name": "Confidence Gate",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        80,
-        -160
+        -256,
+        0
       ]
     },
     {
@@ -171,13 +179,13 @@
         },
         "options": {}
       },
-      "id": "intent-router",
+      "id": "2d489711-c9e6-439f-8e2b-af0b84e7bcfd",
       "name": "Intent Router",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        320,
-        -160
+        -48,
+        -192
       ]
     },
     {
@@ -185,13 +193,13 @@
         "operation": "executeQuery",
         "query": "SELECT\n  id,\n  product_name,\n  sku,\n  price,\n  stock_quantity,\n  category\nFROM public.products\nWHERE active = true\n  AND (\n    LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ $json.ai.product_name }}', ' ', ''))\n    OR LOWER(sku) = LOWER('{{ $json.ai.sku }}')\n  )\nLIMIT 1;"
       },
-      "id": "find-product",
+      "id": "cfe5a4fe-c8fd-49ee-a152-db9b9b569792",
       "name": "Find Product",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        560,
-        -360
+        160,
+        -288
       ]
     },
     {
@@ -199,8 +207,9 @@
         "conditions": {
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict",
-            "version": 2
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
           },
           "conditions": [
             {
@@ -213,42 +222,59 @@
             }
           ],
           "combinator": "and"
-        }
+        },
+        "looseTypeValidation": true,
+        "options": {}
       },
-      "id": "product-found",
+      "id": "7e6c4263-90a6-4c2c-ad55-e85a7e3a5a53",
       "name": "Product Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        800,
-        -360
+        304,
+        -288
       ]
     },
     {
       "parameters": {
         "jsCode": "return {\n  json: {\n    ...$json,\n    response: `${$json.product_name} is ₦${Number($json.price).toLocaleString()}.`\n  }\n};"
       },
-      "id": "price-response",
+      "id": "cfe26f44-7344-467c-81d0-08d0b6adec17",
       "name": "Price Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1040,
-        -440
+        512,
+        -304
       ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE TABLE IF NOT EXISTS public.products (\n    id SERIAL PRIMARY KEY,\n    product_name VARCHAR(150) NOT NULL,\n    sku VARCHAR(50) UNIQUE NOT NULL,\n    price NUMERIC(12,2) NOT NULL,\n    stock_quantity INTEGER NOT NULL DEFAULT 0,\n    category VARCHAR(100),\n    active BOOLEAN DEFAULT TRUE,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE IF NOT EXISTS public.orders (\n    id SERIAL PRIMARY KEY,\n    order_reference VARCHAR(50) UNIQUE NOT NULL,\n    customer_phone VARCHAR(30) NOT NULL,\n    customer_name VARCHAR(100),\n    product_sku VARCHAR(50) NOT NULL,\n    quantity INTEGER NOT NULL,\n    total_amount NUMERIC(12,2) NOT NULL,\n    status VARCHAR(30) NOT NULL DEFAULT 'PROCESSING',\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE IF NOT EXISTS public.automation_logs (\n    id SERIAL PRIMARY KEY,\n    request_id VARCHAR(100),\n    customer_phone VARCHAR(30),\n    intent VARCHAR(50),\n    confidence NUMERIC(4,3),\n    status VARCHAR(50),\n    action_taken VARCHAR(100),\n    error_message TEXT,\n    raw_input JSONB,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\nINSERT INTO public.products\n(product_name, sku, price, stock_quantity, category)\nVALUES\n('Oraimo Power Bank', 'OR-PB-001', 25000, 15, 'Power Banks'),\n('Oraimo FreePods 4', 'OR-FP-004', 45000, 8, 'Earbuds'),\n('Samsung Galaxy A15', 'SAM-A15-001', 285000, 5, 'Smartphones'),\n('Anker PowerCore 20000', 'ANK-PC-20000', 38000, 12, 'Power Banks'),\n('Oraimo Watch 5', 'OR-W5-001', 35000, 0, 'Smart Watches'),\n('HP EliteBook 840', 'HP-EB-840', 650000, 3, 'Laptops')\nON CONFLICT (sku) DO NOTHING;\n\nINSERT INTO public.orders\n(order_reference, customer_phone, customer_name, product_sku, quantity, total_amount, status)\nVALUES\n('NM-10001', '08000000001', 'John Doe', 'OR-PB-001', 2, 50000, 'PROCESSING'),\n('NM-10002', '08000000002', 'Jane Smith', 'OR-FP-004', 1, 45000, 'SHIPPED'),\n('NM-10003', '08000000003', 'David James', 'SAM-A15-001', 1, 285000, 'DELIVERED')\nON CONFLICT (order_reference) DO NOTHING;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1200,
+        -384
+      ],
+      "id": "0d09a003-5b41-465b-a4b3-99e31c23c0bc",
+      "name": "Setup Database"
     },
     {
       "parameters": {
         "operation": "executeQuery",
         "query": "SELECT\n  id,\n  product_name,\n  sku,\n  price,\n  stock_quantity,\n  category\nFROM public.products\nWHERE active = true\n  AND (\n    LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ $json.ai.product_name }}', ' ', ''))\n    OR LOWER(sku) = LOWER('{{ $json.ai.sku }}')\n  )\nLIMIT 1;"
       },
-      "id": "check-product-availability",
+      "id": "21b1b72a-682c-4aec-a9d2-0353a6153744",
       "name": "Check Product Availability",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        560,
-        -120
+        80,
+        -448
       ]
     },
     {
@@ -256,8 +282,9 @@
         "conditions": {
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict",
-            "version": 2
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
           },
           "conditions": [
             {
@@ -270,15 +297,17 @@
             }
           ],
           "combinator": "and"
-        }
+        },
+        "looseTypeValidation": true,
+        "options": {}
       },
-      "id": "product-exists",
+      "id": "9c71eee5-33e3-40dc-93d8-77a0a7b008d7",
       "name": "Product Exists?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        800,
-        -120
+        240,
+        -448
       ]
     },
     {
@@ -286,8 +315,9 @@
         "conditions": {
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict",
-            "version": 2
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
           },
           "conditions": [
             {
@@ -300,28 +330,30 @@
             }
           ],
           "combinator": "and"
-        }
+        },
+        "looseTypeValidation": true,
+        "options": {}
       },
-      "id": "in-stock",
+      "id": "b04a44fc-e3f9-409f-8251-9f2e7c221850",
       "name": "In Stock?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        1040,
-        -120
+        464,
+        -480
       ]
     },
     {
       "parameters": {
         "jsCode": "return {\n  json: {\n    ...$json,\n    response: `${$json.product_name} is available. We currently have ${$json.stock_quantity} unit(s) in stock.`\n  }\n};"
       },
-      "id": "availability-response",
+      "id": "053a28d2-e2d3-484e-b388-6936c47458d5",
       "name": "Availability Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1280,
-        -200
+        688,
+        -496
       ]
     },
     {
@@ -329,13 +361,13 @@
         "operation": "executeQuery",
         "query": "SELECT\n  id,\n  product_name,\n  sku,\n  price,\n  stock_quantity,\n  category,\n  '{{ $json.ai.quantity }}'::integer AS requested_quantity\nFROM public.products\nWHERE active = true\n  AND (\n    LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ $json.ai.product_name }}', ' ', ''))\n    OR LOWER(sku) = LOWER('{{ $json.ai.sku }}')\n  )\nLIMIT 1;"
       },
-      "id": "check-order-product",
+      "id": "bb2317be-d518-4c88-aba8-98adf42ccdef",
       "name": "Check Order Product",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        560,
-        120
+        176,
+        -128
       ]
     },
     {
@@ -343,8 +375,9 @@
         "conditions": {
           "options": {
             "caseSensitive": true,
-            "typeValidation": "strict",
-            "version": 2
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
           },
           "conditions": [
             {
@@ -357,28 +390,30 @@
             }
           ],
           "combinator": "and"
-        }
+        },
+        "looseTypeValidation": true,
+        "options": {}
       },
-      "id": "order-product-exists",
+      "id": "42095bac-4ba0-4586-a627-74a840447549",
       "name": "Order Product Exists?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        800,
-        120
+        352,
+        -112
       ]
     },
     {
       "parameters": {
         "jsCode": "const quantity = Number($json.requested_quantity);\n\nif (!Number.isInteger(quantity) || quantity <= 0) {\n  return {\n    json: {\n      ...$json,\n      quantity_valid: false,\n      error_message: \"Please provide a valid quantity.\"\n    }\n  };\n}\n\nreturn {\n  json: {\n    ...$json,\n    quantity,\n    quantity_valid: true\n  }\n};"
       },
-      "id": "validate-quantity",
+      "id": "29e3d379-2471-4a56-8a88-05b61797dc5c",
       "name": "Validate Quantity",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1040,
-        120
+        592,
+        -144
       ]
     },
     {
@@ -386,8 +421,9 @@
         "conditions": {
           "options": {
             "caseSensitive": true,
+            "leftValue": "",
             "typeValidation": "strict",
-            "version": 2
+            "version": 3
           },
           "conditions": [
             {
@@ -400,42 +436,43 @@
             }
           ],
           "combinator": "and"
-        }
+        },
+        "options": {}
       },
-      "id": "quantity-valid",
+      "id": "5ce73286-6d87-49b8-8aa1-5c46b2c91e46",
       "name": "Quantity Valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        1280,
-        120
+        784,
+        -176
       ]
     }
   ],
   "connections": {
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "When chat message received": {
       "main": [
         [
           {
-            "node": "Normalize Input",
+            "node": "Code in JavaScript",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Normalize Input": {
-      "main": [
-        [
-          {
-            "node": "Gemini Intent Classifier",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Gemini Intent Classifier": {
+    "Message a model": {
       "main": [
         [
           {
@@ -465,8 +502,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Intent Router": {
@@ -491,10 +527,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        [],
-        [],
-        []
+        ]
       ]
     },
     "Find Product": {
@@ -516,8 +549,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Check Product Availability": {
@@ -539,8 +571,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "In Stock?": {
@@ -551,8 +582,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Check Order Product": {
@@ -574,8 +604,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Validate Quantity": {
@@ -588,18 +617,8 @@
           }
         ]
       ]
-    },
-    "Quantity Valid?": {
-      "main": [
-        [],
-        []
-      ]
     }
   },
-  "meta": {
-    "export_note": "Sanitized progress export for GitHub. Credentials, API keys, connection IDs, personal contact details, and secrets intentionally omitted.",
-    "fictional_business": "NaijaMart",
-    "database_schema": "public",
-    "status": "In progress"
-  }
+  "meta": {},
+  "pinData": {}
 }
