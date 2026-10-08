@@ -3,10 +3,10 @@
   "nodes": [
     {
       "parameters": {
-        "jsCode": "const message =\n  $json.chatInput ??\n  $json.message ??\n  $json.text ??\n  \"\";\n\nreturn {\n  json: {\n    message_id: `MSG-${Date.now()}`,\n    request_id: `REQ-${Date.now()}`,\n    customer_phone: \"SIMULATED\",\n    customer_name: \"Customer\",\n    message: String(message).trim(),\n    received_at: new Date().toISOString()\n  }\n};"
+        "jsCode": "const message =\n  $json.chatInput ??\n  $json.message ??\n  $json.text ??\n  \"\";\n\nreturn {\n  json: {\n    message_id: `MSG-${Date.now()}`,\n    request_id: `REQ-${Date.now()}`,\n    customer_phone: \"08000000002\",\n    customer_name: \"Customer\",\n    message: String(message).trim(),\n    received_at: new Date().toISOString()\n  }\n};"
       },
       "id": "f635ccc1-c6f5-484c-8af6-01d3cd3ffa34",
-      "name": "Normalize Input",
+      "name": "Normalize input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -41,11 +41,11 @@
         },
         "builtInTools": {},
         "options": {
-          "systemMessage": "You are the intent classification system for NaijaMart, a fictional retail business.  Your ONLY job is to classify the customer's message and extract relevant information.  Allowed intents: PRODUCT_AVAILABILITY PRICE_ENQUIRY PLACE_ORDER ORDER_STATUS COMPLAINT UNKNOWN  Rules: 1. Return ONLY valid JSON. 2. Do not return Markdown or code fences. 3. Do not invent information. 4. If the intent is unclear, use UNKNOWN. 5. Confidence must be a number between 0 and 1. 6. Extract quantity only when explicitly stated. 7. Extract order_reference only when explicitly provided. 8. Do not decide whether a product is available. 9. Do not decide whether an order exists. 10. Do not calculate prices. 11. Do not create orders. 12. Your job is classification and information extraction only.  Return exactly:  {   \"intent\": \"PRODUCT_AVAILABILITY | PRICE_ENQUIRY | PLACE_ORDER | ORDER_STATUS | COMPLAINT | UNKNOWN\",   \"confidence\": 0.0,   \"product_name\": null,   \"sku\": null,   \"quantity\": null,   \"order_reference\": null,   \"reason\": \"\" }"
+          "systemMessage": "You are the intent classification system for NaijaMart, a fictional retail business.\n\nYour ONLY job is to classify the customer's message and extract relevant information.\n\nAllowed intents:\nPRODUCT_AVAILABILITY\nPRICE_ENQUIRY\nPLACE_ORDER\nORDER_STATUS\nCOMPLAINT\nUNKNOWN\n\nRules:\n\n1. Return ONLY valid JSON.\n2. Do not return Markdown or code fences.\n3. Do not invent information.\n4. If the intent is unclear, use UNKNOWN.\n5. Confidence must be a number between 0 and 1.\n6. Extract quantity only when explicitly stated.\n7. Extract order_reference only when explicitly provided.\n8. Do not decide whether a product is available.\n9. Do not decide whether an order exists.\n10. Do not calculate prices.\n11. Do not create orders.\n12. For COMPLAINT, identify the customer's complaint and generate a short, polite, empathetic customer-facing response.\n13. The complaint response must acknowledge the customer's issue and explain that the issue will be escalated to the support team.\n14. Do not promise refunds, replacements, compensation, delivery dates, or any other action that has not been explicitly authorized.\n15. Your job is classification, information extraction, and complaint-response drafting only.\n\nReturn exactly:\n\n{\n  \"intent\": \"PRODUCT_AVAILABILITY | PRICE_ENQUIRY | PLACE_ORDER | ORDER_STATUS | COMPLAINT | UNKNOWN\",\n  \"confidence\": 0.0,\n  \"product_name\": null,\n  \"sku\": null,\n  \"quantity\": null,\n  \"order_reference\": null,\n  \"reason\": \"\",\n  \"complaint_response\": null\n}\n\nFor COMPLAINT:\n- Put a natural, concise customer-facing response in \"complaint_response\".\n- For all other intents, set \"complaint_response\" to null."
         }
       },
       "id": "b8e2156f-c4ef-45cc-9f6c-52a9298b726f",
-      "name": "Gemini Intent Classifier",
+      "name": "Message a model",
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.2,
       "position": [
@@ -447,6 +447,109 @@
         784,
         -176
       ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  id,\n  order_reference,\n  customer_phone,\n  customer_name,\n  product_sku,\n  quantity,\n  total_amount,\n  status,\n  created_at,\n  updated_at\nFROM public.orders\nWHERE customer_phone = '08000000002'\nORDER BY created_at DESC\nLIMIT 1;"
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        704,
+        -80
+      ],
+      "id": "d1c50976-6814-4aee-9790-bf388d125acf",
+      "name": "Check Order Status"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "order-found-condition",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        928,
+        -80
+      ],
+      "id": "15289df6-90d9-4071-8a17-f67bc0c14716",
+      "name": "Order Found?"
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    ...$json,\n    response: `Order ${$json.order_reference} is currently ${$json.status.toLowerCase()}.`\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        -80
+      ],
+      "id": "ad2a9a48-de2f-40b7-9221-927b7086c80d",
+      "name": "Order Status Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    ...$json,\n    escalation_required: true,\n    escalation_reason: \"Customer complaint\",\n    response: $json.ai.complaint_response\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        80
+      ],
+      "id": "f0c0a93a-f9fd-4006-be54-eaec7025f4ba",
+      "name": "Complaint Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    ...$json,\n    staff_notification: `COMPLAINT ESCALATION\nCustomer: ${$json.customer_name}\nPhone: ${$json.customer_phone}\nMessage: ${$json.message}\nRequest ID: ${$json.request_id}`\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        80
+      ],
+      "id": "078b0625-84e8-461b-b22b-db8724d33156",
+      "name": "Staff Notification"
+    },
+    {
+      "parameters": {
+        "sendTo": "staff@naijamart.example",
+        "subject": "NaijaMart Complaint Escalation — {{ $json.request_id }}",
+        "emailType": "text",
+        "message": "=A customer complaint has been escalated and requires staff attention.\n\nCUSTOMER DETAILS\nName: {{ $json.customer_name }}\nPhone: {{ $json.customer_phone }}\n\nCOMPLAINT\n{{ $json.message }}\n\nAI SUMMARY\n{{ $json.ai.reason }}\n\nORDER REFERENCE\n{{ $json.ai.order_reference || \"Not provided\" }}\n\nAI CONFIDENCE\n{{ $json.ai.confidence }}\n\nREQUEST ID\n{{ $json.request_id }}\n\nACTION REQUIRED\nPlease review the complaint and contact the customer if necessary.\n\nThis notification was generated automatically by the NaijaMart customer support automation system.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1264,
+        80
+      ],
+      "id": "30fae2ad-adf6-4ac1-8ce6-3ae72eeb510d",
+      "name": "Send a message"
     }
   ],
   "connections": {
@@ -465,7 +568,7 @@
       "main": [
         [
           {
-            "node": "Code in JavaScript",
+            "node": "Normalize input",
             "type": "main",
             "index": 0
           }
@@ -527,7 +630,22 @@
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        [
+          {
+            "node": "Check Order Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Complaint Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     },
     "Find Product": {
@@ -617,8 +735,63 @@
           }
         ]
       ]
+    },
+    "Normalize input": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Order Status": {
+      "main": [
+        [
+          {
+            "node": "Order Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Found?": {
+      "main": [
+        [
+          {
+            "node": "Order Status Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Complaint Response": {
+      "main": [
+        [
+          {
+            "node": "Staff Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Staff Notification": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "meta": {},
   "pinData": {}
 }
