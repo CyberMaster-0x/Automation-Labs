@@ -329,7 +329,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "CREATE TABLE IF NOT EXISTS public.products (id SERIAL PRIMARY KEY, product_name VARCHAR(150) NOT NULL, sku VARCHAR(50) UNIQUE NOT NULL, price NUMERIC(12,2) NOT NULL, stock_quantity INTEGER NOT NULL DEFAULT 0, category VARCHAR(100), active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);\nCREATE TABLE IF NOT EXISTS public.orders (id SERIAL PRIMARY KEY, order_reference VARCHAR(50) UNIQUE NOT NULL, customer_phone VARCHAR(30) NOT NULL, customer_name VARCHAR(100), product_sku VARCHAR(50) NOT NULL, quantity INTEGER NOT NULL, total_amount NUMERIC(12,2) NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'PROCESSING', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);\nCREATE TABLE IF NOT EXISTS public.automation_logs (id SERIAL PRIMARY KEY, request_id VARCHAR(100), customer_phone VARCHAR(30), intent VARCHAR(50), confidence NUMERIC(4,3), status VARCHAR(50), action_taken VARCHAR(100), error_message TEXT, raw_input JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);\nINSERT INTO public.products (product_name,sku,price,stock_quantity,category) VALUES ('Oraimo Power Bank','OR-PB-001',25000,15,'Power Banks'),('Oraimo FreePods 4','OR-FP-004',45000,8,'Earbuds'),('Samsung Galaxy A15','SAM-A15-001',285000,5,'Smartphones'),('Anker PowerCore 20000','ANK-PC-20000',38000,12,'Power Banks'),('Oraimo Watch 5','OR-W5-001',35000,0,'Smart Watches'),('HP EliteBook 840','HP-EB-840',650000,3,'Laptops') ON CONFLICT (sku) DO NOTHING;\nINSERT INTO public.orders (order_reference,customer_phone,customer_name,product_sku,quantity,total_amount,status) VALUES ('NM-10001','00000000001','Demo Customer 1','OR-PB-001',2,50000,'PROCESSING'),('NM-10002','00000000002','Demo Customer 2','OR-FP-004',1,45000,'SHIPPED'),('NM-10003','00000000003','Demo Customer 3','SAM-A15-001',1,285000,'DELIVERED') ON CONFLICT (order_reference) DO NOTHING;",
+        "query": "CREATE TABLE IF NOT EXISTS public.products (id SERIAL PRIMARY KEY, product_name VARCHAR(150) NOT NULL, sku VARCHAR(50) UNIQUE NOT NULL, price NUMERIC(12,2) NOT NULL, stock_quantity INTEGER NOT NULL DEFAULT 0, category VARCHAR(100), active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);\nCREATE TABLE IF NOT EXISTS public.orders (id SERIAL PRIMARY KEY, order_reference VARCHAR(50) UNIQUE NOT NULL, customer_phone VARCHAR(30) NOT NULL, customer_name VARCHAR(100), product_sku VARCHAR(50) NOT NULL, quantity INTEGER NOT NULL, total_amount NUMERIC(12,2) NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'PROCESSING', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);\nCREATE TABLE IF NOT EXISTS public.automation_logs (id SERIAL PRIMARY KEY, request_id VARCHAR(100), customer_phone VARCHAR(30), intent VARCHAR(50), confidence NUMERIC(4,3), status VARCHAR(50), action_taken VARCHAR(100), error_message TEXT, raw_input JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);\nINSERT INTO public.products (product_name,sku,price,stock_quantity,category) VALUES ('Oraimo Power Bank','OR-PB-001',25000,15,'Power Banks'),('Oraimo FreePods 4','OR-FP-004',45000,8,'Earbuds'),('Samsung Galaxy A15','SAM-A15-001',285000,5,'Smartphones'),('Anker PowerCore 20000','ANK-PC-20000',38000,12,'Power Banks'),('Oraimo Watch 5','OR-W5-001',35000,0,'Smart Watches'),('HP EliteBook 840','HP-EB-840',650000,3,'Laptops') ON CONFLICT (sku) DO NOTHING;\nINSERT INTO public.orders (order_reference,customer_phone,customer_name,product_sku,quantity,total_amount,status) VALUES ('NM-10001','00000000001','Demo Customer 1','OR-PB-001',2,50000,'PROCESSING'),('NM-10002','00000000002','Demo Customer 2','OR-FP-004',1,45000,'SHIPPED'),('NM-10003','00000000003','Demo Customer 3','SAM-A15-001',1,285000,'DELIVERED') ON CONFLICT (order_reference) DO NOTHING;\n-- Audit-log migration: safe to re-run\nALTER TABLE public.automation_logs\n  ADD COLUMN IF NOT EXISTS escalation_required BOOLEAN NOT NULL DEFAULT FALSE;\nALTER TABLE public.automation_logs\n  ADD COLUMN IF NOT EXISTS duration_ms INTEGER;\nALTER TABLE public.automation_logs\n  ADD COLUMN IF NOT EXISTS channel VARCHAR(30) NOT NULL DEFAULT 'n8n_chat';\nCREATE INDEX IF NOT EXISTS idx_automation_logs_created_at\n  ON public.automation_logs (created_at DESC);\nCREATE INDEX IF NOT EXISTS idx_automation_logs_request_id\n  ON public.automation_logs (request_id);\n",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -868,7 +868,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const reply=$json.response || $json.output || \"Thanks for contacting NaijaMart. How else can I help?\"; return {json:{...$json,response:reply,output:reply}};"
+        "jsCode": "const reply = $json.response || $json.output || \"Thanks for contacting NaijaMart. How else can I help?\";\nconst knownOutcomeStatuses = new Set([\n  \"NEEDS_CLARIFICATION\", \"NOT_FOUND\", \"OUT_OF_STOCK\", \"PRODUCT_NOT_FOUND\",\n  \"ORDER_NOT_PLACED\", \"NEEDS_QUANTITY\", \"INVALID_QUANTITY\", \"ORDER_NOT_FOUND\",\n  \"GREETING\"\n]);\nconst sourceStatus = String($json.status || \"\");\nconst auditStatus = $json.escalation_required === true\n  ? \"ESCALATED\"\n  : (knownOutcomeStatuses.has(sourceStatus) ? sourceStatus : \"COMPLETED\");\nconst intent = String($(\"Parse Ai Response\").first().json.ai?.intent || \"UNKNOWN\");\nconst startedAt = Date.parse($(\"Normalize input\").first().json.received_at || \"\");\nconst durationMs = Number.isFinite(startedAt) ? Math.max(0, Date.now() - startedAt) : null;\nreturn {json:{...$json,response:reply,output:reply,audit_status:auditStatus,audit_action:`${intent}:${auditStatus}`,duration_ms:durationMs}};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -878,6 +878,35 @@
       ],
       "id": "cb7f1f88-4f22-4d5f-94c5-3f7e6e4b0007",
       "name": "Finalize Customer Response"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH inserted AS (\n  INSERT INTO public.automation_logs\n    (request_id, customer_phone, intent, confidence, status, action_taken,\n     error_message, raw_input, escalation_required, duration_ms, channel)\n  VALUES (\n    NULLIF('{{ String($(\"Normalize input\").first().json.request_id || \"\").replace(/'/g, \"''\") }}', ''),\n    NULLIF('{{ String($(\"Normalize input\").first().json.customer_phone || \"\").replace(/'/g, \"''\") }}', ''),\n    NULLIF('{{ String($(\"Parse Ai Response\").first().json.ai?.intent || \"UNKNOWN\").replace(/'/g, \"''\") }}', ''),\n    NULLIF('{{ Number.isFinite(Number($(\"Parse Ai Response\").first().json.ai?.confidence)) ? Number($(\"Parse Ai Response\").first().json.ai.confidence).toFixed(3) : \"\" }}', '')::numeric,\n    '{{ String($(\"Finalize Customer Response\").first().json.audit_status || \"COMPLETED\").replace(/'/g, \"''\") }}',\n    '{{ String($(\"Finalize Customer Response\").first().json.audit_action || \"responded\").replace(/'/g, \"''\") }}',\n    NULL,\n    jsonb_build_object(\n      'channel', 'n8n_chat',\n      'message_length', {{ String($(\"Normalize input\").first().json.message || \"\").length }}\n    ),\n    {{ $(\"Finalize Customer Response\").first().json.escalation_required === true ? \"TRUE\" : \"FALSE\" }},\n    NULLIF('{{ String($(\"Finalize Customer Response\").first().json.duration_ms ?? \"\").replace(/'/g, \"''\") }}', '')::integer,\n    'n8n_chat'\n  )\n  RETURNING id\n)\nSELECT\n  '{{ String($(\"Finalize Customer Response\").first().json.response || \"\").replace(/'/g, \"''\") }}' AS response,\n  '{{ String($(\"Finalize Customer Response\").first().json.output || \"\").replace(/'/g, \"''\") }}' AS output,\n  '{{ String($(\"Normalize input\").first().json.request_id || \"\").replace(/'/g, \"''\") }}' AS request_id,\n  (SELECT id FROM inserted) AS audit_log_id,\n  TRUE AS audit_log_written;",
+        "options": {}
+      },
+      "id": "d15c9b2a-4e7f-4b1a-9c33-5a4c77a1b802",
+      "name": "Log Activity",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1928,
+        1728
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $(\"Finalize Customer Response\").first().json;\nconst logWritten = $json.audit_log_written === true;\nreturn {json:{\n  ...original,\n  audit_log_written: logWritten,\n  audit_log_id: $json.audit_log_id ?? null,\n  audit_log_warning: logWritten ? null : \"Customer response returned, but the audit log write may have failed. Check the Log Activity node execution.\"\n}};"
+      },
+      "id": "d15c9b2a-4e7f-4b1a-9c33-5a4c77a1b803",
+      "name": "Return Customer Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        1728
+      ]
     }
   ],
   "connections": {
@@ -1366,6 +1395,28 @@
         [
           {
             "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Customer Response": {
+      "main": [
+        [
+          {
+            "node": "Log Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Activity": {
+      "main": [
+        [
+          {
+            "node": "Return Customer Response",
             "type": "main",
             "index": 0
           }
