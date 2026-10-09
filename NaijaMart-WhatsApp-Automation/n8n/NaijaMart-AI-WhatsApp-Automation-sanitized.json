@@ -550,25 +550,64 @@
       ],
       "id": "30fae2ad-adf6-4ac1-8ce6-3ae72eeb510d",
       "name": "Send a message"
+    },
+    {
+      "name": "Unknown response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        3376
+      ],
+      "parameters": {
+        "jsCode": "const reply=\"I can help with product availability, prices, order status, or complaints. What would you like to do?\"; return {json:{...$json,response:reply,output:reply,status:\"NEEDS_CLARIFICATION\"}};"
+      },
+      "id": "naijamart-unknown-response"
+    },
+    {
+      "name": "Low confidence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        3760
+      ],
+      "parameters": {
+        "jsCode": "const reply=\"I want to make sure I understand. Could you share a little more detail about what you need?\"; return {json:{...$json,response:reply,output:reply,status:\"NEEDS_CLARIFICATION\"}};"
+      },
+      "id": "naijamart-low-confidence"
+    },
+    {
+      "name": "Greeting Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        3568
+      ],
+      "parameters": {
+        "jsCode": "const reply=\"Hi there! 👋 Welcome to NaijaMart. I can help you check product availability, prices, order status, or raise a complaint. What can I help you with today?\"; return {json:{...$json,response:reply,output:reply,status:\"GREETING\"}};"
+      },
+      "id": "naijamart-greeting-response"
     }
   ],
   "connections": {
-    "Code in JavaScript": {
+    "When chat message received": {
       "main": [
         [
           {
-            "node": "Message a model",
+            "node": "Normalize input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "When chat message received": {
+    "Normalize input": {
       "main": [
         [
           {
-            "node": "Normalize input",
+            "node": "Message a model",
             "type": "main",
             "index": 0
           }
@@ -602,6 +641,13 @@
         [
           {
             "node": "Intent Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Low confidence",
             "type": "main",
             "index": 0
           }
@@ -645,25 +691,16 @@
             "index": 0
           }
         ],
-        []
-      ]
-    },
-    "Find Product": {
-      "main": [
         [
           {
-            "node": "Product Found?",
+            "node": "Unknown response",
             "type": "main",
             "index": 0
           }
-        ]
-      ]
-    },
-    "Product Found?": {
-      "main": [
+        ],
         [
           {
-            "node": "Price Response",
+            "node": "Greeting Response",
             "type": "main",
             "index": 0
           }
@@ -689,6 +726,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Availability Response",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -697,6 +741,42 @@
         [
           {
             "node": "Availability Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Availability Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Product": {
+      "main": [
+        [
+          {
+            "node": "Product Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Found?": {
+      "main": [
+        [
+          {
+            "node": "Price Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Price Response",
             "type": "main",
             "index": 0
           }
@@ -722,6 +802,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Validate Quantity",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -736,11 +823,18 @@
         ]
       ]
     },
-    "Normalize input": {
+    "Quantity Valid?": {
       "main": [
         [
           {
-            "node": "Message a model",
+            "node": "Validate Quantity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate Quantity",
             "type": "main",
             "index": 0
           }
@@ -767,7 +861,13 @@
             "index": 0
           }
         ],
-        []
+        [
+          {
+            "node": "Order Status Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Complaint Response": {
@@ -786,6 +886,17 @@
         [
           {
             "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Complaint Response",
             "type": "main",
             "index": 0
           }
