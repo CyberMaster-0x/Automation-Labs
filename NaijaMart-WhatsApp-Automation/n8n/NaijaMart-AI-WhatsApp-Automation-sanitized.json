@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "jsCode": "const message =\n  $json.chatInput ??\n  $json.message ??\n  $json.text ??\n  \"\";\n\nreturn {\n  json: {\n    message_id: `MSG-${Date.now()}`,\n    request_id: `REQ-${Date.now()}`,\n    customer_phone: \"08000000002\",\n    customer_name: \"Customer\",\n    message: String(message).trim(),\n    received_at: new Date().toISOString()\n  }\n};"
+        "jsCode": "const message=$json.chatInput ?? $json.message ?? $json.text ?? \"\"; return {json:{message_id:`MSG-${Date.now()}`,request_id:`REQ-${Date.now()}`,customer_phone:null,customer_name:\"Customer\",message:String(message).trim(),received_at:new Date().toISOString()}};"
       },
       "id": "f635ccc1-c6f5-484c-8af6-01d3cd3ffa34",
       "name": "Normalize input",
@@ -55,7 +55,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const aiText = $json.content.parts[0].text;\n\nlet ai;\n\ntry {\n  ai = JSON.parse(aiText);\n} catch (error) {\n  throw new Error(`Gemini returned invalid JSON: ${aiText}`);\n}\n\nreturn {\n  json: {\n    ...$json,\n    ai\n  }\n};"
+        "jsCode": "const raw=$json.content?.parts?.[0]?.text ?? $json.output ?? $json.text ?? $json.response ?? \"\"; if(!raw) throw new Error(\"AI model returned no usable output.\"); let ai; if(typeof raw===\"object\") ai=raw; else { const s=String(raw).replace(/^```json\\s*/i,\"\").replace(/^```\\s*/i,\"\").replace(/\\s*```$/i,\"\").trim(); try{ai=JSON.parse(s)}catch{throw new Error(\"AI returned invalid JSON.\")} } const allowed=[\"GREETING\",\"PRODUCT_AVAILABILITY\",\"PRICE_ENQUIRY\",\"PLACE_ORDER\",\"ORDER_STATUS\",\"COMPLAINT\",\"UNKNOWN\"]; if(!allowed.includes(ai.intent)) ai.intent=\"UNKNOWN\"; ai.confidence=Math.max(0,Math.min(1,Number(ai.confidence)||0)); return {json:{...$json,ai}};"
       },
       "id": "13ab0f04-9c85-4222-92ae-6409eb348fc0",
       "name": "Parse Ai Response",
@@ -78,7 +78,7 @@
           "conditions": [
             {
               "leftValue": "={{ $json.ai.confidence }}",
-              "rightValue": "=0.70",
+              "rightValue": 0.7,
               "operator": {
                 "type": "number",
                 "operation": "gte"
@@ -359,7 +359,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  id,\n  product_name,\n  sku,\n  price,\n  stock_quantity,\n  category,\n  '{{ $json.ai.quantity }}'::integer AS requested_quantity\nFROM public.products\nWHERE active = true\n  AND (\n    LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ $json.ai.product_name }}', ' ', ''))\n    OR LOWER(sku) = LOWER('{{ $json.ai.sku }}')\n  )\nLIMIT 1;"
+        "query": "SELECT id, product_name, sku, price, stock_quantity, category, CASE WHEN '{{ String($json.ai.quantity ?? \"\").replace(/'/g, \"''\") }}' ~ '^[0-9]+$' THEN NULLIF('{{ String($json.ai.quantity ?? \"\").replace(/'/g, \"''\") }}','')::integer ELSE NULL END AS requested_quantity FROM public.products WHERE active=true AND ((LOWER(REPLACE(product_name,' ',''))=LOWER(REPLACE('{{ String($json.ai.product_name || \"\").replace(/'/g, \"''\") }}',' ','')) AND '{{ String($json.ai.product_name || \"\").replace(/'/g, \"''\") }}' <> '') OR (LOWER(sku)=LOWER('{{ String($json.ai.sku || \"\").replace(/'/g, \"''\") }}') AND '{{ String($json.ai.sku || \"\").replace(/'/g, \"''\") }}' <> '')) LIMIT 1;"
       },
       "id": "bb2317be-d518-4c88-aba8-98adf42ccdef",
       "name": "Check Order Product",
@@ -405,7 +405,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const quantity = Number($json.requested_quantity);\n\nif (!Number.isInteger(quantity) || quantity <= 0) {\n  return {\n    json: {\n      ...$json,\n      quantity_valid: false,\n      error_message: \"Please provide a valid quantity.\"\n    }\n  };\n}\n\nreturn {\n  json: {\n    ...$json,\n    quantity,\n    quantity_valid: true\n  }\n};"
+        "jsCode": "const quantity=Number($json.requested_quantity); const valid=Number.isInteger(quantity)&&quantity>0; const reply=valid?`I found ${$json.product_name}, but order placement is not enabled in this workflow yet. No order has been placed.`:\"Please provide a valid quantity as a whole number greater than zero. No order has been placed.\"; return {json:{...$json,quantity,quantity_valid:valid,response:reply,output:reply,status:valid?\"ORDER_NOT_PLACED\":\"INVALID_QUANTITY\"}};"
       },
       "id": "29e3d379-2471-4a56-8a88-05b61797dc5c",
       "name": "Validate Quantity",
@@ -451,7 +451,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  id,\n  order_reference,\n  customer_phone,\n  customer_name,\n  product_sku,\n  quantity,\n  total_amount,\n  status,\n  created_at,\n  updated_at\nFROM public.orders\nWHERE customer_phone = '08000000002'\nORDER BY created_at DESC\nLIMIT 1;"
+        "query": "SELECT id, order_reference, customer_phone, customer_name, product_sku, quantity, total_amount, status, created_at, updated_at FROM public.orders WHERE order_reference = '{{ String($json.ai.order_reference || \"\").replace(/'/g, \"''\") }}' AND '{{ String($json.ai.order_reference || \"\").replace(/'/g, \"''\") }}' <> '' LIMIT 1;"
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -497,7 +497,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return {\n  json: {\n    ...$json,\n    response: `Order ${$json.order_reference} is currently ${$json.status.toLowerCase()}.`\n  }\n};"
+        "jsCode": "const reply=`Order ${$json.order_reference} is currently ${String($json.status||\"unknown\").toLowerCase()}.`; return {json:{...$json,response:reply,output:reply}};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -510,7 +510,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return {\n  json: {\n    ...$json,\n    escalation_required: true,\n    escalation_reason: \"Customer complaint\",\n    response: $json.ai.complaint_response\n  }\n};"
+        "jsCode": "const reply=$json.ai?.complaint_response || \"I’m sorry you’re experiencing this issue. I’ll escalate your complaint to our support team for review.\"; return {json:{...$json,escalation_required:true,escalation_reason:$json.ai?.reason||\"Customer complaint\",response:reply,output:reply}};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -589,6 +589,110 @@
         "jsCode": "const reply=\"Hi there! 👋 Welcome to NaijaMart. I can help you check product availability, prices, order status, or raise a complaint. What can I help you with today?\"; return {json:{...$json,response:reply,output:reply,status:\"GREETING\"}};"
       },
       "id": "naijamart-greeting-response"
+    },
+    {
+      "name": "Product Not Found Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        1952
+      ],
+      "id": "fix-product-not-found-response",
+      "parameters": {
+        "jsCode": "const reply=\"Sorry, I couldn’t find that product. Please check the product name or SKU and try again.\"; return {json:{...$json,response:reply,output:reply,status:\"NOT_FOUND\"}};"
+      }
+    },
+    {
+      "name": "Out of Stock Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        1536
+      ],
+      "id": "fix-out-of-stock-response",
+      "parameters": {
+        "jsCode": "const reply=`${$json.product_name} is currently out of stock.`; return {json:{...$json,response:reply,output:reply,status:\"OUT_OF_STOCK\"}};"
+      }
+    },
+    {
+      "name": "Order Product Missing Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        2288
+      ],
+      "id": "fix-order-product-missing-response",
+      "parameters": {
+        "jsCode": "const reply=\"Sorry, I couldn’t find that product. Please confirm its name or SKU. No order has been placed.\"; return {json:{...$json,response:reply,output:reply,status:\"PRODUCT_NOT_FOUND\"}};"
+      }
+    },
+    {
+      "name": "Order Not Placed Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        2416
+      ],
+      "id": "fix-order-not-placed-response",
+      "parameters": {
+        "jsCode": "const reply=`I found ${$json.product_name}, but order placement is not enabled in this workflow yet. No order has been placed.`; return {json:{...$json,response:reply,output:reply,status:\"ORDER_NOT_PLACED\"}};"
+      }
+    },
+    {
+      "name": "Quantity Invalid Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        2608
+      ],
+      "id": "fix-quantity-invalid-response",
+      "parameters": {
+        "jsCode": "const reply=\"Please provide a valid quantity as a whole number greater than zero. No order has been placed.\"; return {json:{...$json,response:reply,output:reply,status:\"INVALID_QUANTITY\"}};"
+      }
+    },
+    {
+      "name": "Order Not Found Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        2992
+      ],
+      "id": "fix-order-not-found-response",
+      "parameters": {
+        "jsCode": "const reply=\"I couldn’t find an order with that reference. Please check the order reference and try again.\"; return {json:{...$json,response:reply,output:reply,status:\"ORDER_NOT_FOUND\"}};"
+      }
+    },
+    {
+      "name": "Complaint Final Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        3184
+      ],
+      "id": "fix-complaint-final-response",
+      "parameters": {
+        "jsCode": "const reply=$json.response || \"Thank you for letting us know. Your complaint has been escalated to our support team for review.\"; return {json:{...$json,response:reply,output:reply}};"
+      }
+    },
+    {
+      "name": "Finalize Customer Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        2592
+      ],
+      "id": "fix-finalize-customer-response",
+      "parameters": {
+        "jsCode": "const reply=$json.response || $json.output || \"Thanks for contacting NaijaMart. How else can I help?\"; return {json:{...$json,response:reply,output:reply}};"
+      }
     }
   ],
   "connections": {
@@ -729,7 +833,7 @@
         ],
         [
           {
-            "node": "Availability Response",
+            "node": "Product Not Found Response",
             "type": "main",
             "index": 0
           }
@@ -747,7 +851,29 @@
         ],
         [
           {
-            "node": "Availability Response",
+            "node": "Out of Stock Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Availability Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Out of Stock Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
             "type": "main",
             "index": 0
           }
@@ -776,7 +902,29 @@
         ],
         [
           {
-            "node": "Price Response",
+            "node": "Product Not Found Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Not Found Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
             "type": "main",
             "index": 0
           }
@@ -805,7 +953,7 @@
         ],
         [
           {
-            "node": "Validate Quantity",
+            "node": "Order Product Missing Response",
             "type": "main",
             "index": 0
           }
@@ -827,14 +975,47 @@
       "main": [
         [
           {
-            "node": "Validate Quantity",
+            "node": "Order Not Placed Response",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Validate Quantity",
+            "node": "Quantity Invalid Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Not Placed Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quantity Invalid Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Product Missing Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
             "type": "main",
             "index": 0
           }
@@ -863,7 +1044,29 @@
         ],
         [
           {
-            "node": "Order Status Response",
+            "node": "Order Not Found Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Status Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Not Found Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
             "type": "main",
             "index": 0
           }
@@ -896,7 +1099,51 @@
       "main": [
         [
           {
-            "node": "Complaint Response",
+            "node": "Complaint Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complaint Final Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unknown response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Low confidence": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Greeting Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
             "type": "main",
             "index": 0
           }
