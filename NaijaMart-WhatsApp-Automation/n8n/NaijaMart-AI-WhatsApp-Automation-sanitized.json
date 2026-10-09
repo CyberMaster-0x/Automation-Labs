@@ -176,26 +176,16 @@
               ]
             },
             {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "loose",
-                  "version": 3
-                },
-                "conditions": [
-                  {
-                    "id": "intent-greeting",
-                    "leftValue": "={{ $json.ai.intent }}",
-                    "rightValue": "GREETING",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
+              "conditions": [
+                {
+                  "leftValue": "={{ $json.ai.intent }}",
+                  "rightValue": "GREETING",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
                   }
-                ],
-                "combinator": "and"
-              }
+                }
+              ]
             }
           ]
         },
