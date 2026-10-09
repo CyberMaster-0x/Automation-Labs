@@ -1,29 +1,21 @@
 {
-  "name": "NaijaMart - AI WhatsApp Automation (Sanitized Progress Export)",
+  "name": "NaijaMart AI Customer Support (Corrected)",
   "nodes": [
     {
       "parameters": {
-        "jsCode": "const message=$json.chatInput ?? $json.message ?? $json.text ?? \"\"; return {json:{message_id:`MSG-${Date.now()}`,request_id:`REQ-${Date.now()}`,customer_phone:null,customer_name:\"Customer\",message:String(message).trim(),received_at:new Date().toISOString()}};"
+        "public": true,
+        "options": {
+          "responseMode": "lastNode"
+        }
       },
-      "id": "f635ccc1-c6f5-484c-8af6-01d3cd3ffa34",
-      "name": "Normalize input",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -640,
-        -176
-      ]
-    },
-    {
-      "parameters": {},
-      "id": "a8a94359-b44c-466d-8a63-51137b36f3f0",
-      "name": "When chat message received",
       "type": "@n8n/n8n-nodes-langchain.chatTrigger",
       "typeVersion": 1.4,
       "position": [
-        -864,
-        -144
-      ]
+        -944,
+        1728
+      ],
+      "id": "a8a94359-b44c-466d-8a63-51137b36f3f0",
+      "name": "When chat message received"
     },
     {
       "parameters": {
@@ -41,30 +33,30 @@
         },
         "builtInTools": {},
         "options": {
-          "systemMessage": "You are the intent classification system for NaijaMart, a fictional retail business.\n\nYour ONLY job is to classify the customer's message and extract relevant information.\n\nAllowed intents:\nPRODUCT_AVAILABILITY\nPRICE_ENQUIRY\nPLACE_ORDER\nORDER_STATUS\nCOMPLAINT\nUNKNOWN\n\nRules:\n\n1. Return ONLY valid JSON.\n2. Do not return Markdown or code fences.\n3. Do not invent information.\n4. If the intent is unclear, use UNKNOWN.\n5. Confidence must be a number between 0 and 1.\n6. Extract quantity only when explicitly stated.\n7. Extract order_reference only when explicitly provided.\n8. Do not decide whether a product is available.\n9. Do not decide whether an order exists.\n10. Do not calculate prices.\n11. Do not create orders.\n12. For COMPLAINT, identify the customer's complaint and generate a short, polite, empathetic customer-facing response.\n13. The complaint response must acknowledge the customer's issue and explain that the issue will be escalated to the support team.\n14. Do not promise refunds, replacements, compensation, delivery dates, or any other action that has not been explicitly authorized.\n15. Your job is classification, information extraction, and complaint-response drafting only.\n\nReturn exactly:\n\n{\n  \"intent\": \"PRODUCT_AVAILABILITY | PRICE_ENQUIRY | PLACE_ORDER | ORDER_STATUS | COMPLAINT | UNKNOWN\",\n  \"confidence\": 0.0,\n  \"product_name\": null,\n  \"sku\": null,\n  \"quantity\": null,\n  \"order_reference\": null,\n  \"reason\": \"\",\n  \"complaint_response\": null\n}\n\nFor COMPLAINT:\n- Put a natural, concise customer-facing response in \"complaint_response\".\n- For all other intents, set \"complaint_response\" to null."
+          "systemMessage": "Classify the NaijaMart customer message and extract fields. Return only valid JSON, no markdown. Allowed intents: GREETING, PRODUCT_AVAILABILITY, PRICE_ENQUIRY, PLACE_ORDER, ORDER_STATUS, COMPLAINT, UNKNOWN. Do not invent information, decide stock/order existence, calculate prices, or create orders. Confidence must be 0..1. Extract quantity/order_reference only if explicitly stated. For complaints, write a short empathetic response saying the issue will be escalated; do not promise a refund or other action. Schema: {\"intent\":\"GREETING|PRODUCT_AVAILABILITY|PRICE_ENQUIRY|PLACE_ORDER|ORDER_STATUS|COMPLAINT|UNKNOWN\",\"confidence\":0.0,\"product_name\":null,\"sku\":null,\"quantity\":null,\"order_reference\":null,\"reason\":\"\",\"complaint_response\":null}. For GREETING, use intent GREETING. For non-complaints set complaint_response null."
         }
       },
-      "id": "b8e2156f-c4ef-45cc-9f6c-52a9298b726f",
-      "name": "Message a model",
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.2,
       "position": [
-        -432,
-        -224
-      ]
+        -944,
+        512
+      ],
+      "id": "b8e2156f-c4ef-45cc-9f6c-52a9298b726f",
+      "name": "Message a model"
     },
     {
       "parameters": {
-        "jsCode": "const raw=$json.content?.parts?.[0]?.text ?? $json.output ?? $json.text ?? $json.response ?? \"\"; if(!raw) throw new Error(\"AI model returned no usable output.\"); let ai; if(typeof raw===\"object\") ai=raw; else { const s=String(raw).replace(/^```json\\s*/i,\"\").replace(/^```\\s*/i,\"\").replace(/\\s*```$/i,\"\").trim(); try{ai=JSON.parse(s)}catch{throw new Error(\"AI returned invalid JSON.\")} } const allowed=[\"GREETING\",\"PRODUCT_AVAILABILITY\",\"PRICE_ENQUIRY\",\"PLACE_ORDER\",\"ORDER_STATUS\",\"COMPLAINT\",\"UNKNOWN\"]; if(!allowed.includes(ai.intent)) ai.intent=\"UNKNOWN\"; ai.confidence=Math.max(0,Math.min(1,Number(ai.confidence)||0)); return {json:{...$json,ai}};"
+        "jsCode": "const raw = $json.output ?? $json.text ?? $json.response ?? $json.content ?? \"\";\nif (!raw) throw new Error(\"AI model returned no usable output.\");\nlet ai;\nif (typeof raw === \"object\") ai = raw;\nelse { const s = String(raw).replace(/^```json\\s*/i,\"\").replace(/^```\\s*/i,\"\").replace(/\\s*```$/i,\"\").trim(); try { ai = JSON.parse(s); } catch { throw new Error(\"AI returned invalid JSON: \" + s); } }\nconst allowed = [\"GREETING\",\"PRODUCT_AVAILABILITY\",\"PRICE_ENQUIRY\",\"PLACE_ORDER\",\"ORDER_STATUS\",\"COMPLAINT\",\"UNKNOWN\"];\nif (!allowed.includes(ai.intent)) ai.intent = \"UNKNOWN\";\nai.confidence = Math.max(0, Math.min(1, Number(ai.confidence) || 0));\nreturn {json:{...$json, ai}};"
       },
-      "id": "13ab0f04-9c85-4222-92ae-6409eb348fc0",
-      "name": "Parse Ai Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -464,
-        -48
-      ]
+        -144,
+        1728
+      ],
+      "id": "13ab0f04-9c85-4222-92ae-6409eb348fc0",
+      "name": "Parse Ai Response"
     },
     {
       "parameters": {
@@ -77,6 +69,7 @@
           },
           "conditions": [
             {
+              "id": "confidence-gte",
               "leftValue": "={{ $json.ai.confidence }}",
               "rightValue": 0.7,
               "operator": {
@@ -87,132 +80,205 @@
           ],
           "combinator": "and"
         },
-        "looseTypeValidation": true,
         "options": {}
       },
-      "id": "a2aba792-822f-4553-9219-fa1c5619872f",
-      "name": "Confidence Gate",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -256,
-        0
-      ]
+        80,
+        1728
+      ],
+      "id": "a2aba792-822f-4553-9219-fa1c5619872f",
+      "name": "Confidence Gate"
     },
     {
       "parameters": {
         "rules": {
           "values": [
             {
-              "conditions": [
-                {
-                  "leftValue": "={{ $json.ai.intent }}",
-                  "rightValue": "PRODUCT_AVAILABILITY",
-                  "operator": {
-                    "type": "string",
-                    "operation": "equals"
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "intent-product_availability",
+                    "leftValue": "={{ $json.ai.intent }}",
+                    "rightValue": "PRODUCT_AVAILABILITY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                }
-              ]
+                ],
+                "combinator": "and"
+              }
             },
             {
-              "conditions": [
-                {
-                  "leftValue": "={{ $json.ai.intent }}",
-                  "rightValue": "PRICE_ENQUIRY",
-                  "operator": {
-                    "type": "string",
-                    "operation": "equals"
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "intent-price_enquiry",
+                    "leftValue": "={{ $json.ai.intent }}",
+                    "rightValue": "PRICE_ENQUIRY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                }
-              ]
+                ],
+                "combinator": "and"
+              }
             },
             {
-              "conditions": [
-                {
-                  "leftValue": "={{ $json.ai.intent }}",
-                  "rightValue": "PLACE_ORDER",
-                  "operator": {
-                    "type": "string",
-                    "operation": "equals"
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "intent-place_order",
+                    "leftValue": "={{ $json.ai.intent }}",
+                    "rightValue": "PLACE_ORDER",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                }
-              ]
+                ],
+                "combinator": "and"
+              }
             },
             {
-              "conditions": [
-                {
-                  "leftValue": "={{ $json.ai.intent }}",
-                  "rightValue": "ORDER_STATUS",
-                  "operator": {
-                    "type": "string",
-                    "operation": "equals"
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "intent-order_status",
+                    "leftValue": "={{ $json.ai.intent }}",
+                    "rightValue": "ORDER_STATUS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                }
-              ]
+                ],
+                "combinator": "and"
+              }
             },
             {
-              "conditions": [
-                {
-                  "leftValue": "={{ $json.ai.intent }}",
-                  "rightValue": "COMPLAINT",
-                  "operator": {
-                    "type": "string",
-                    "operation": "equals"
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "intent-complaint",
+                    "leftValue": "={{ $json.ai.intent }}",
+                    "rightValue": "COMPLAINT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                }
-              ]
+                ],
+                "combinator": "and"
+              }
             },
             {
-              "conditions": [
-                {
-                  "leftValue": "={{ $json.ai.intent }}",
-                  "rightValue": "UNKNOWN",
-                  "operator": {
-                    "type": "string",
-                    "operation": "equals"
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "intent-unknown",
+                    "leftValue": "={{ $json.ai.intent }}",
+                    "rightValue": "UNKNOWN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                }
-              ]
+                ],
+                "combinator": "and"
+              }
             },
             {
-              "conditions": [
-                {
-                  "leftValue": "={{ $json.ai.intent }}",
-                  "rightValue": "GREETING",
-                  "operator": {
-                    "type": "string",
-                    "operation": "equals"
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "intent-greeting",
+                    "leftValue": "={{ $json.ai.intent }}",
+                    "rightValue": "GREETING",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                }
-              ]
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
+        "looseTypeValidation": true,
         "options": {}
       },
-      "id": "2d489711-c9e6-439f-8e2b-af0b84e7bcfd",
-      "name": "Intent Router",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        -48,
-        -192
-      ]
+        304,
+        1536
+      ],
+      "id": "2d489711-c9e6-439f-8e2b-af0b84e7bcfd",
+      "name": "Intent Router"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  id,\n  product_name,\n  sku,\n  price,\n  stock_quantity,\n  category\nFROM public.products\nWHERE active = true\n  AND (\n    LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ $json.ai.product_name }}', ' ', ''))\n    OR LOWER(sku) = LOWER('{{ $json.ai.sku }}')\n  )\nLIMIT 1;"
+        "query": "SELECT id, product_name, sku, price, stock_quantity, category FROM public.products WHERE active = true AND ((LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ String($json.ai.product_name || '').replace(/'/g, \"''\") }}', ' ', '')) AND '{{ String($json.ai.product_name || '').replace(/'/g, \"''\") }}' <> '') OR (LOWER(sku) = LOWER('{{ String($json.ai.sku || '').replace(/'/g, \"''\") }}') AND '{{ String($json.ai.sku || '').replace(/'/g, \"''\") }}' <> '')) LIMIT 1;",
+        "options": {
+          "outputColumns": []
+        }
       },
-      "id": "cfe5a4fe-c8fd-49ee-a152-db9b9b569792",
-      "name": "Find Product",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        160,
-        -288
-      ]
+        976,
+        1120
+      ],
+      "id": "cfe5a4fe-c8fd-49ee-a152-db9b9b569792",
+      "name": "Find Product"
     },
     {
       "parameters": {
@@ -225,6 +291,7 @@
           },
           "conditions": [
             {
+              "id": "7e6c4263-90a6-4c2c-ad55-e85a7e3a5a53-condition",
               "leftValue": "={{ $json.id }}",
               "rightValue": "",
               "operator": {
@@ -235,42 +302,41 @@
           ],
           "combinator": "and"
         },
-        "looseTypeValidation": true,
         "options": {}
       },
-      "id": "7e6c4263-90a6-4c2c-ad55-e85a7e3a5a53",
-      "name": "Product Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        304,
-        -288
-      ]
+        1200,
+        1120
+      ],
+      "id": "7e6c4263-90a6-4c2c-ad55-e85a7e3a5a53",
+      "name": "Product Found?"
     },
     {
       "parameters": {
-        "jsCode": "return {\n  json: {\n    ...$json,\n    response: `${$json.product_name} is ₦${Number($json.price).toLocaleString()}.`\n  }\n};"
+        "jsCode": "const reply = `${$json.product_name} is ₦${Number($json.price).toLocaleString(\"en-NG\")}.`; return {json:{...$json,response:reply,output:reply}};"
       },
-      "id": "cfe26f44-7344-467c-81d0-08d0b6adec17",
-      "name": "Price Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        512,
-        -304
-      ]
+        1424,
+        1024
+      ],
+      "id": "cfe26f44-7344-467c-81d0-08d0b6adec17",
+      "name": "Price Response"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "CREATE TABLE IF NOT EXISTS public.products (\n    id SERIAL PRIMARY KEY,\n    product_name VARCHAR(150) NOT NULL,\n    sku VARCHAR(50) UNIQUE NOT NULL,\n    price NUMERIC(12,2) NOT NULL,\n    stock_quantity INTEGER NOT NULL DEFAULT 0,\n    category VARCHAR(100),\n    active BOOLEAN DEFAULT TRUE,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE IF NOT EXISTS public.orders (\n    id SERIAL PRIMARY KEY,\n    order_reference VARCHAR(50) UNIQUE NOT NULL,\n    customer_phone VARCHAR(30) NOT NULL,\n    customer_name VARCHAR(100),\n    product_sku VARCHAR(50) NOT NULL,\n    quantity INTEGER NOT NULL,\n    total_amount NUMERIC(12,2) NOT NULL,\n    status VARCHAR(30) NOT NULL DEFAULT 'PROCESSING',\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE IF NOT EXISTS public.automation_logs (\n    id SERIAL PRIMARY KEY,\n    request_id VARCHAR(100),\n    customer_phone VARCHAR(30),\n    intent VARCHAR(50),\n    confidence NUMERIC(4,3),\n    status VARCHAR(50),\n    action_taken VARCHAR(100),\n    error_message TEXT,\n    raw_input JSONB,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\nINSERT INTO public.products\n(product_name, sku, price, stock_quantity, category)\nVALUES\n('Oraimo Power Bank', 'OR-PB-001', 25000, 15, 'Power Banks'),\n('Oraimo FreePods 4', 'OR-FP-004', 45000, 8, 'Earbuds'),\n('Samsung Galaxy A15', 'SAM-A15-001', 285000, 5, 'Smartphones'),\n('Anker PowerCore 20000', 'ANK-PC-20000', 38000, 12, 'Power Banks'),\n('Oraimo Watch 5', 'OR-W5-001', 35000, 0, 'Smart Watches'),\n('HP EliteBook 840', 'HP-EB-840', 650000, 3, 'Laptops')\nON CONFLICT (sku) DO NOTHING;\n\nINSERT INTO public.orders\n(order_reference, customer_phone, customer_name, product_sku, quantity, total_amount, status)\nVALUES\n('NM-10001', '08000000001', 'John Doe', 'OR-PB-001', 2, 50000, 'PROCESSING'),\n('NM-10002', '08000000002', 'Jane Smith', 'OR-FP-004', 1, 45000, 'SHIPPED'),\n('NM-10003', '08000000003', 'David James', 'SAM-A15-001', 1, 285000, 'DELIVERED')\nON CONFLICT (order_reference) DO NOTHING;",
+        "query": "CREATE TABLE IF NOT EXISTS public.products (id SERIAL PRIMARY KEY, product_name VARCHAR(150) NOT NULL, sku VARCHAR(50) UNIQUE NOT NULL, price NUMERIC(12,2) NOT NULL, stock_quantity INTEGER NOT NULL DEFAULT 0, category VARCHAR(100), active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);\nCREATE TABLE IF NOT EXISTS public.orders (id SERIAL PRIMARY KEY, order_reference VARCHAR(50) UNIQUE NOT NULL, customer_phone VARCHAR(30) NOT NULL, customer_name VARCHAR(100), product_sku VARCHAR(50) NOT NULL, quantity INTEGER NOT NULL, total_amount NUMERIC(12,2) NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'PROCESSING', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);\nCREATE TABLE IF NOT EXISTS public.automation_logs (id SERIAL PRIMARY KEY, request_id VARCHAR(100), customer_phone VARCHAR(30), intent VARCHAR(50), confidence NUMERIC(4,3), status VARCHAR(50), action_taken VARCHAR(100), error_message TEXT, raw_input JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);\nINSERT INTO public.products (product_name,sku,price,stock_quantity,category) VALUES ('Oraimo Power Bank','OR-PB-001',25000,15,'Power Banks'),('Oraimo FreePods 4','OR-FP-004',45000,8,'Earbuds'),('Samsung Galaxy A15','SAM-A15-001',285000,5,'Smartphones'),('Anker PowerCore 20000','ANK-PC-20000',38000,12,'Power Banks'),('Oraimo Watch 5','OR-W5-001',35000,0,'Smart Watches'),('HP EliteBook 840','HP-EB-840',650000,3,'Laptops') ON CONFLICT (sku) DO NOTHING;\nINSERT INTO public.orders (order_reference,customer_phone,customer_name,product_sku,quantity,total_amount,status) VALUES ('NM-10001','00000000001','Demo Customer 1','OR-PB-001',2,50000,'PROCESSING'),('NM-10002','00000000002','Demo Customer 2','OR-FP-004',1,45000,'SHIPPED'),('NM-10003','00000000003','Demo Customer 3','SAM-A15-001',1,285000,'DELIVERED') ON CONFLICT (order_reference) DO NOTHING;",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        1200,
-        -384
+        -944,
+        288
       ],
       "id": "0d09a003-5b41-465b-a4b3-99e31c23c0bc",
       "name": "Setup Database"
@@ -278,16 +344,17 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  id,\n  product_name,\n  sku,\n  price,\n  stock_quantity,\n  category\nFROM public.products\nWHERE active = true\n  AND (\n    LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ $json.ai.product_name }}', ' ', ''))\n    OR LOWER(sku) = LOWER('{{ $json.ai.sku }}')\n  )\nLIMIT 1;"
+        "query": "SELECT id, product_name, sku, price, stock_quantity, category FROM public.products WHERE active = true AND ((LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ String($json.ai.product_name || '').replace(/'/g, \"''\") }}', ' ', '')) AND '{{ String($json.ai.product_name || '').replace(/'/g, \"''\") }}' <> '') OR (LOWER(sku) = LOWER('{{ String($json.ai.sku || '').replace(/'/g, \"''\") }}') AND '{{ String($json.ai.sku || '').replace(/'/g, \"''\") }}' <> '')) LIMIT 1;",
+        "options": {}
       },
-      "id": "21b1b72a-682c-4aec-a9d2-0353a6153744",
-      "name": "Check Product Availability",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        80,
-        -448
-      ]
+        528,
+        736
+      ],
+      "id": "21b1b72a-682c-4aec-a9d2-0353a6153744",
+      "name": "Check Product Availability"
     },
     {
       "parameters": {
@@ -300,6 +367,7 @@
           },
           "conditions": [
             {
+              "id": "9c71eee5-33e3-40dc-93d8-77a0a7b008d7-condition",
               "leftValue": "={{ $json.id }}",
               "rightValue": "",
               "operator": {
@@ -310,17 +378,16 @@
           ],
           "combinator": "and"
         },
-        "looseTypeValidation": true,
         "options": {}
       },
-      "id": "9c71eee5-33e3-40dc-93d8-77a0a7b008d7",
-      "name": "Product Exists?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        240,
-        -448
-      ]
+        752,
+        736
+      ],
+      "id": "9c71eee5-33e3-40dc-93d8-77a0a7b008d7",
+      "name": "Product Exists?"
     },
     {
       "parameters": {
@@ -333,6 +400,7 @@
           },
           "conditions": [
             {
+              "id": "b04a44fc-e3f9-409f-8251-9f2e7c221850-condition",
               "leftValue": "={{ $json.stock_quantity }}",
               "rightValue": 0,
               "operator": {
@@ -343,44 +411,44 @@
           ],
           "combinator": "and"
         },
-        "looseTypeValidation": true,
         "options": {}
       },
-      "id": "b04a44fc-e3f9-409f-8251-9f2e7c221850",
-      "name": "In Stock?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        464,
-        -480
-      ]
+        976,
+        736
+      ],
+      "id": "b04a44fc-e3f9-409f-8251-9f2e7c221850",
+      "name": "In Stock?"
     },
     {
       "parameters": {
-        "jsCode": "return {\n  json: {\n    ...$json,\n    response: `${$json.product_name} is available. We currently have ${$json.stock_quantity} unit(s) in stock.`\n  }\n};"
+        "jsCode": "const reply = `${$json.product_name} is available. We currently have ${$json.stock_quantity} unit(s) in stock.`; return {json:{...$json,response:reply,output:reply}};"
       },
-      "id": "053a28d2-e2d3-484e-b388-6936c47458d5",
-      "name": "Availability Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        688,
-        -496
-      ]
+        1200,
+        736
+      ],
+      "id": "053a28d2-e2d3-484e-b388-6936c47458d5",
+      "name": "Availability Response"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, product_name, sku, price, stock_quantity, category, CASE WHEN '{{ String($json.ai.quantity ?? \"\").replace(/'/g, \"''\") }}' ~ '^[0-9]+$' THEN NULLIF('{{ String($json.ai.quantity ?? \"\").replace(/'/g, \"''\") }}','')::integer ELSE NULL END AS requested_quantity FROM public.products WHERE active=true AND ((LOWER(REPLACE(product_name,' ',''))=LOWER(REPLACE('{{ String($json.ai.product_name || \"\").replace(/'/g, \"''\") }}',' ','')) AND '{{ String($json.ai.product_name || \"\").replace(/'/g, \"''\") }}' <> '') OR (LOWER(sku)=LOWER('{{ String($json.ai.sku || \"\").replace(/'/g, \"''\") }}') AND '{{ String($json.ai.sku || \"\").replace(/'/g, \"''\") }}' <> '')) LIMIT 1;"
+        "query": "SELECT id, product_name, sku, price, stock_quantity, category, NULLIF('{{ String($json.ai.quantity ?? \"\").replace(/'/g, \"''\") }}','')::integer AS requested_quantity FROM public.products WHERE active = true AND ((LOWER(REPLACE(product_name, ' ', '')) = LOWER(REPLACE('{{ String($json.ai.product_name || '').replace(/'/g, \"''\") }}', ' ', '')) AND '{{ String($json.ai.product_name || '').replace(/'/g, \"''\") }}' <> '') OR (LOWER(sku) = LOWER('{{ String($json.ai.sku || '').replace(/'/g, \"''\") }}') AND '{{ String($json.ai.sku || '').replace(/'/g, \"''\") }}' <> '')) LIMIT 1;",
+        "options": {}
       },
-      "id": "bb2317be-d518-4c88-aba8-98adf42ccdef",
-      "name": "Check Order Product",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        176,
-        -128
-      ]
+        528,
+        1504
+      ],
+      "id": "bb2317be-d518-4c88-aba8-98adf42ccdef",
+      "name": "Check Order Product"
     },
     {
       "parameters": {
@@ -393,6 +461,7 @@
           },
           "conditions": [
             {
+              "id": "42095bac-4ba0-4586-a627-74a840447549-condition",
               "leftValue": "={{ $json.id }}",
               "rightValue": "",
               "operator": {
@@ -403,30 +472,29 @@
           ],
           "combinator": "and"
         },
-        "looseTypeValidation": true,
         "options": {}
       },
-      "id": "42095bac-4ba0-4586-a627-74a840447549",
-      "name": "Order Product Exists?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        352,
-        -112
-      ]
+        752,
+        1504
+      ],
+      "id": "42095bac-4ba0-4586-a627-74a840447549",
+      "name": "Order Product Exists?"
     },
     {
       "parameters": {
-        "jsCode": "const quantity=Number($json.requested_quantity); const valid=Number.isInteger(quantity)&&quantity>0; const reply=valid?`I found ${$json.product_name}, but order placement is not enabled in this workflow yet. No order has been placed.`:\"Please provide a valid quantity as a whole number greater than zero. No order has been placed.\"; return {json:{...$json,quantity,quantity_valid:valid,response:reply,output:reply,status:valid?\"ORDER_NOT_PLACED\":\"INVALID_QUANTITY\"}};"
+        "jsCode": "const quantity=Number($json.requested_quantity); const valid=Number.isInteger(quantity)&&quantity>0; const reply=valid?`I found ${$json.product_name}, but this demo workflow does not submit orders yet. No order has been placed.`:\"Please tell me the quantity you want to order as a whole number greater than zero.\"; return {json:{...$json,quantity,quantity_valid:valid,response:reply,output:reply,status:valid?\"ORDER_NOT_PLACED\":\"NEEDS_QUANTITY\"}};"
       },
-      "id": "29e3d379-2471-4a56-8a88-05b61797dc5c",
-      "name": "Validate Quantity",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        592,
-        -144
-      ]
+        976,
+        1504
+      ],
+      "id": "29e3d379-2471-4a56-8a88-05b61797dc5c",
+      "name": "Validate Quantity"
     },
     {
       "parameters": {
@@ -434,12 +502,13 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict",
+            "typeValidation": "loose",
             "version": 3
           },
           "conditions": [
             {
-              "leftValue": "={{ $json.quantity_valid }}",
+              "id": "5ce73286-6d87-49b8-8aa1-5c46b2c91e46-condition",
+              "leftValue": "= {{ $json.quantity_valid }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -451,25 +520,26 @@
         },
         "options": {}
       },
-      "id": "5ce73286-6d87-49b8-8aa1-5c46b2c91e46",
-      "name": "Quantity Valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        784,
-        -176
-      ]
+        1200,
+        1504
+      ],
+      "id": "5ce73286-6d87-49b8-8aa1-5c46b2c91e46",
+      "name": "Quantity Valid?"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, order_reference, customer_phone, customer_name, product_sku, quantity, total_amount, status, created_at, updated_at FROM public.orders WHERE order_reference = '{{ String($json.ai.order_reference || \"\").replace(/'/g, \"''\") }}' AND '{{ String($json.ai.order_reference || \"\").replace(/'/g, \"''\") }}' <> '' LIMIT 1;"
+        "query": "SELECT id, order_reference, customer_phone, customer_name, product_sku, quantity, total_amount, status, created_at, updated_at FROM public.orders WHERE order_reference = '{{ String($json.ai.order_reference || '').replace(/'/g, \"''\") }}' AND '{{ String($json.ai.order_reference || '').replace(/'/g, \"''\") }}' <> '' LIMIT 1;",
+        "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        704,
-        -80
+        528,
+        1696
       ],
       "id": "d1c50976-6814-4aee-9790-bf388d125acf",
       "name": "Check Order Status"
@@ -481,11 +551,11 @@
             "caseSensitive": true,
             "leftValue": "",
             "typeValidation": "loose",
-            "version": 2
+            "version": 3
           },
           "conditions": [
             {
-              "id": "order-found-condition",
+              "id": "15289df6-90d9-4071-8a17-f67bc0c14716-condition",
               "leftValue": "={{ $json.id }}",
               "rightValue": "",
               "operator": {
@@ -499,49 +569,62 @@
         "options": {}
       },
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
+      "typeVersion": 2.3,
       "position": [
-        928,
-        -80
+        752,
+        1696
       ],
       "id": "15289df6-90d9-4071-8a17-f67bc0c14716",
       "name": "Order Found?"
     },
     {
       "parameters": {
-        "jsCode": "const reply=`Order ${$json.order_reference} is currently ${String($json.status||\"unknown\").toLowerCase()}.`; return {json:{...$json,response:reply,output:reply}};"
+        "jsCode": "const reply=`Order ${$json.order_reference} is currently ${String($json.status).toLowerCase()}.`; return {json:{...$json,response:reply,output:reply}};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1152,
-        -80
+        976,
+        1696
       ],
       "id": "ad2a9a48-de2f-40b7-9221-927b7086c80d",
       "name": "Order Status Response"
     },
     {
       "parameters": {
-        "jsCode": "const reply=$json.ai?.complaint_response || \"I’m sorry you’re experiencing this issue. I’ll escalate your complaint to our support team for review.\"; return {json:{...$json,escalation_required:true,escalation_reason:$json.ai?.reason||\"Customer complaint\",response:reply,output:reply}};"
+        "jsCode": "const message=String($json.chatInput ?? $json.message ?? $json.text ?? \"\").trim(); return {json:{message_id:`MSG-${Date.now()}`,request_id:`REQ-${Date.now()}`,customer_phone:null,customer_name:\"Customer\",message,received_at:new Date().toISOString()}};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        816,
-        80
+        -720,
+        1728
+      ],
+      "id": "f635ccc1-c6f5-484c-8af6-01d3cd3ffa34",
+      "name": "Normalize input"
+    },
+    {
+      "parameters": {
+        "jsCode": "const reply=$json.ai?.complaint_response || \"I’m sorry you’re experiencing this issue. I’ll escalate your complaint to our support team for review.\"; return {json:{...$json,escalation_required:true,escalation_reason:$json.ai?.reason || \"Customer complaint\",response:reply,output:reply}};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        1888
       ],
       "id": "f0c0a93a-f9fd-4006-be54-eaec7025f4ba",
       "name": "Complaint Response"
     },
     {
       "parameters": {
-        "jsCode": "return {\n  json: {\n    ...$json,\n    staff_notification: `COMPLAINT ESCALATION\nCustomer: ${$json.customer_name}\nPhone: ${$json.customer_phone}\nMessage: ${$json.message}\nRequest ID: ${$json.request_id}`\n  }\n};"
+        "jsCode": "return {json:{...$json,staff_notification:`COMPLAINT ESCALATION\\nCustomer: ${$json.customer_name}\\nPhone: ${$json.customer_phone || \"Not provided\"}\\nMessage: ${$json.message}\\nRequest ID: ${$json.request_id}`}};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1040,
-        80
+        752,
+        1888
       ],
       "id": "078b0625-84e8-461b-b22b-db8724d33156",
       "name": "Staff Notification"
@@ -549,162 +632,252 @@
     {
       "parameters": {
         "sendTo": "staff@naijamart.example",
-        "subject": "NaijaMart Complaint Escalation — {{ $json.request_id }}",
+        "subject": "=NaijaMart Complaint Escalation — {{ $json.request_id }}",
         "emailType": "text",
-        "message": "=A customer complaint has been escalated and requires staff attention.\n\nCUSTOMER DETAILS\nName: {{ $json.customer_name }}\nPhone: {{ $json.customer_phone }}\n\nCOMPLAINT\n{{ $json.message }}\n\nAI SUMMARY\n{{ $json.ai.reason }}\n\nORDER REFERENCE\n{{ $json.ai.order_reference || \"Not provided\" }}\n\nAI CONFIDENCE\n{{ $json.ai.confidence }}\n\nREQUEST ID\n{{ $json.request_id }}\n\nACTION REQUIRED\nPlease review the complaint and contact the customer if necessary.\n\nThis notification was generated automatically by the NaijaMart customer support automation system.",
+        "message": "=A customer complaint has been escalated and requires staff attention.\n\nCUSTOMER: {{ $json.customer_name }}\nPHONE: {{ $json.customer_phone || \"Not provided\" }}\nCOMPLAINT: {{ $json.message }}\nAI SUMMARY: {{ $json.ai.reason }}\nORDER REFERENCE: {{ $json.ai.order_reference || \"Not provided\" }}\nREQUEST ID: {{ $json.request_id }}\n\nPlease review and contact the customer if necessary.",
         "options": {}
       },
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
       "position": [
-        1264,
-        80
+        976,
+        1888
       ],
       "id": "30fae2ad-adf6-4ac1-8ce6-3ae72eeb510d",
       "name": "Send a message"
     },
     {
-      "name": "Unknown response",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1856,
-        3376
-      ],
       "parameters": {
         "jsCode": "const reply=\"I can help with product availability, prices, order status, or complaints. What would you like to do?\"; return {json:{...$json,response:reply,output:reply,status:\"NEEDS_CLARIFICATION\"}};"
       },
-      "id": "naijamart-unknown-response"
-    },
-    {
-      "name": "Low confidence",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1856,
-        3760
+        528,
+        2080
       ],
+      "id": "53f07633-3d79-463e-86b8-f0befccb3d24",
+      "name": "Unknown response"
+    },
+    {
       "parameters": {
         "jsCode": "const reply=\"I want to make sure I understand. Could you share a little more detail about what you need?\"; return {json:{...$json,response:reply,output:reply,status:\"NEEDS_CLARIFICATION\"}};"
       },
-      "id": "naijamart-low-confidence"
-    },
-    {
-      "name": "Greeting Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1856,
-        3568
+        304,
+        1856
       ],
+      "id": "8e3b4226-6f03-4fa1-b318-0c9b14be9b8f",
+      "name": "Low confidence"
+    },
+    {
+      "parameters": {
+        "jsCode": "const productName=$json.ai?.product_name; const sku=$json.ai?.sku; const valid=(typeof productName===\"string\"&&productName.trim()!==\"\")||(typeof sku===\"string\"&&sku.trim()!==\"\"); return {json:{...$json,price_request_valid:valid}};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        1120
+      ],
+      "id": "5581dd60-4b2a-4aae-955d-a82cfa8b7396",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const reply=\"Sure. Which product would you like to know the price of?\"; return {json:{...$json,response:reply,output:reply,status:\"NEEDS_CLARIFICATION\"}};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        1312
+      ],
+      "id": "af5ccd12-6ba4-4976-affb-cc519eafc52c",
+      "name": "Price Clarification Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "be9f9e42-d25b-4b80-aab2-26077505e4f8-condition",
+              "leftValue": "={{ $json.price_request_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        752,
+        1120
+      ],
+      "id": "be9f9e42-d25b-4b80-aab2-26077505e4f8",
+      "name": "Product Information Provided?"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Customer message:\n\n{{ $json.message }}",
+        "options": {
+          "systemMessage": "Classify the NaijaMart customer message and extract fields. Return only valid JSON. Allowed intents: GREETING, PRODUCT_AVAILABILITY, PRICE_ENQUIRY, PLACE_ORDER, ORDER_STATUS, COMPLAINT, UNKNOWN. Never invent details or create orders. Confidence 0..1. Extract quantity and order_reference only if explicit. Complaint response must be empathetic and say it will be escalated; make no promises. Return exactly one JSON object with keys intent, confidence, product_name, sku, quantity, order_reference, reason, complaint_response. Greetings use GREETING. For non-complaints complaint_response=null."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -496,
+        1728
+      ],
+      "id": "86d8bea9-e8e1-43e8-8a26-b1d34bb669bd",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        1968
+      ],
+      "id": "6d24c3db-5b1c-4044-b716-12b08a38fd0f",
+      "name": "Groq Chat Model"
+    },
+    {
+      "parameters": {
+        "jsCode": "const reply=\"Sorry, I couldn’t find that product. Please check the product name or SKU and try again.\"; return {json:{...$json,response:reply,output:reply,status:\"NOT_FOUND\"}};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1424,
+        1216
+      ],
+      "id": "4a4e793c-9776-43de-aa37-a5d9a1ccfaa4",
+      "name": "Product Not Found Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const reply=$json.id ? `${$json.product_name} is currently out of stock.` : \"Sorry, I couldn’t find that product. Could you confirm its name or SKU?\"; return {json:{...$json,response:reply,output:reply,status:$json.id?\"OUT_OF_STOCK\":\"NOT_FOUND\"}};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        928
+      ],
+      "id": "7eb6d515-dfb0-420a-9d5a-7d2df804577b",
+      "name": "Availability Product Not Found:"
+    },
+    {
       "parameters": {
         "jsCode": "const reply=\"Hi there! 👋 Welcome to NaijaMart. I can help you check product availability, prices, order status, or raise a complaint. What can I help you with today?\"; return {json:{...$json,response:reply,output:reply,status:\"GREETING\"}};"
       },
-      "id": "naijamart-greeting-response"
-    },
-    {
-      "name": "Product Not Found Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1856,
-        1952
+        528,
+        2240
       ],
-      "id": "fix-product-not-found-response",
+      "id": "cb7f1f88-4f22-4d5f-94c5-3f7e6e4b0001",
+      "name": "Greeting Response"
+    },
+    {
       "parameters": {
-        "jsCode": "const reply=\"Sorry, I couldn’t find that product. Please check the product name or SKU and try again.\"; return {json:{...$json,response:reply,output:reply,status:\"NOT_FOUND\"}};"
-      }
-    },
-    {
-      "name": "Out of Stock Response",
+        "jsCode": "const reply=\"Sorry, I couldn’t find that product. Please confirm the product name or SKU. No order has been placed.\"; return {json:{...$json,response:reply,output:reply,status:\"PRODUCT_NOT_FOUND\"}};"
+      },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1856,
-        1536
+        976,
+        1456
       ],
-      "id": "fix-out-of-stock-response",
-      "parameters": {
-        "jsCode": "const reply=`${$json.product_name} is currently out of stock.`; return {json:{...$json,response:reply,output:reply,status:\"OUT_OF_STOCK\"}};"
-      }
+      "id": "cb7f1f88-4f22-4d5f-94c5-3f7e6e4b0002",
+      "name": "Order Product Missing Response"
     },
     {
-      "name": "Order Product Missing Response",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1408,
-        2288
-      ],
-      "id": "fix-order-product-missing-response",
-      "parameters": {
-        "jsCode": "const reply=\"Sorry, I couldn’t find that product. Please confirm its name or SKU. No order has been placed.\"; return {json:{...$json,response:reply,output:reply,status:\"PRODUCT_NOT_FOUND\"}};"
-      }
-    },
-    {
-      "name": "Order Not Placed Response",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1856,
-        2416
-      ],
-      "id": "fix-order-not-placed-response",
       "parameters": {
         "jsCode": "const reply=`I found ${$json.product_name}, but order placement is not enabled in this workflow yet. No order has been placed.`; return {json:{...$json,response:reply,output:reply,status:\"ORDER_NOT_PLACED\"}};"
-      }
-    },
-    {
-      "name": "Quantity Invalid Response",
+      },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1856,
-        2608
+        1424,
+        1504
       ],
-      "id": "fix-quantity-invalid-response",
+      "id": "cb7f1f88-4f22-4d5f-94c5-3f7e6e4b0003",
+      "name": "Order Not Placed Response"
+    },
+    {
       "parameters": {
         "jsCode": "const reply=\"Please provide a valid quantity as a whole number greater than zero. No order has been placed.\"; return {json:{...$json,response:reply,output:reply,status:\"INVALID_QUANTITY\"}};"
-      }
-    },
-    {
-      "name": "Order Not Found Response",
+      },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1856,
-        2992
+        1424,
+        1600
       ],
-      "id": "fix-order-not-found-response",
+      "id": "cb7f1f88-4f22-4d5f-94c5-3f7e6e4b0004",
+      "name": "Quantity Invalid Response"
+    },
+    {
       "parameters": {
         "jsCode": "const reply=\"I couldn’t find an order with that reference. Please check the order reference and try again.\"; return {json:{...$json,response:reply,output:reply,status:\"ORDER_NOT_FOUND\"}};"
-      }
-    },
-    {
-      "name": "Complaint Final Response",
+      },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1856,
-        3184
+        976,
+        1808
       ],
-      "id": "fix-complaint-final-response",
+      "id": "cb7f1f88-4f22-4d5f-94c5-3f7e6e4b0005",
+      "name": "Order Not Found Response"
+    },
+    {
       "parameters": {
         "jsCode": "const reply=$json.response || \"Thank you for letting us know. Your complaint has been escalated to our support team for review.\"; return {json:{...$json,response:reply,output:reply}};"
-      }
-    },
-    {
-      "name": "Finalize Customer Response",
+      },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2080,
-        2592
+        1200,
+        1888
       ],
-      "id": "fix-finalize-customer-response",
+      "id": "cb7f1f88-4f22-4d5f-94c5-3f7e6e4b0006",
+      "name": "Complaint Final Response"
+    },
+    {
       "parameters": {
         "jsCode": "const reply=$json.response || $json.output || \"Thanks for contacting NaijaMart. How else can I help?\"; return {json:{...$json,response:reply,output:reply}};"
-      }
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        1728
+      ],
+      "id": "cb7f1f88-4f22-4d5f-94c5-3f7e6e4b0007",
+      "name": "Finalize Customer Response"
     }
   ],
   "connections": {
@@ -719,18 +892,23 @@
         ]
       ]
     },
+    "Message a model": {
+      "main": [
+        []
+      ]
+    },
     "Normalize input": {
       "main": [
         [
           {
-            "node": "Message a model",
+            "node": "AI Agent",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Message a model": {
+    "AI Agent": {
       "main": [
         [
           {
@@ -740,6 +918,9 @@
           }
         ]
       ]
+    },
+    "Groq Chat Model": {
+      "main": []
     },
     "Parse Ai Response": {
       "main": [
@@ -781,7 +962,7 @@
         ],
         [
           {
-            "node": "Find Product",
+            "node": "Code in JavaScript",
             "type": "main",
             "index": 0
           }
@@ -845,7 +1026,7 @@
         ],
         [
           {
-            "node": "Product Not Found Response",
+            "node": "Availability Product Not Found:",
             "type": "main",
             "index": 0
           }
@@ -863,7 +1044,7 @@
         ],
         [
           {
-            "node": "Out of Stock Response",
+            "node": "Availability Product Not Found:",
             "type": "main",
             "index": 0
           }
@@ -881,11 +1062,40 @@
         ]
       ]
     },
-    "Out of Stock Response": {
+    "Availability Product Not Found:": {
       "main": [
         [
           {
             "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Product Information Provided?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Information Provided?": {
+      "main": [
+        [
+          {
+            "node": "Find Product",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Price Clarification Response",
             "type": "main",
             "index": 0
           }
@@ -922,6 +1132,17 @@
       ]
     },
     "Price Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price Clarification Response": {
       "main": [
         [
           {
@@ -1001,39 +1222,6 @@
         ]
       ]
     },
-    "Order Not Placed Response": {
-      "main": [
-        [
-          {
-            "node": "Finalize Customer Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Quantity Invalid Response": {
-      "main": [
-        [
-          {
-            "node": "Finalize Customer Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Order Product Missing Response": {
-      "main": [
-        [
-          {
-            "node": "Finalize Customer Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Check Order Status": {
       "main": [
         [
@@ -1064,17 +1252,6 @@
       ]
     },
     "Order Status Response": {
-      "main": [
-        [
-          {
-            "node": "Finalize Customer Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Order Not Found Response": {
       "main": [
         [
           {
@@ -1118,17 +1295,6 @@
         ]
       ]
     },
-    "Complaint Final Response": {
-      "main": [
-        [
-          {
-            "node": "Finalize Customer Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Unknown response": {
       "main": [
         [
@@ -1151,7 +1317,51 @@
         ]
       ]
     },
+    "Order Not Placed Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quantity Invalid Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Not Found Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Greeting Response": {
+      "main": [
+        [
+          {
+            "node": "Finalize Customer Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complaint Final Response": {
       "main": [
         [
           {
@@ -1163,5 +1373,9 @@
       ]
     }
   },
-  "pinData": {}
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
 }
